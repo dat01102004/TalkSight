@@ -1,33 +1,28 @@
-from datetime import datetime, timedelta
-import os
-from typing import Optional
+# app/security.py
+from __future__ import annotations
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, Optional
+
+from fastapi import HTTPException
+from jose import jwt, JWTError, ExpiredSignatureError
 from passlib.context import CryptContext
-from sqlalchemy.orm import Session
-
-from app.db import get_db
-from app import models
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# JWT settings
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "CHANGE_ME_TO_A_RANDOM_SECRET")  # set trong .env càng tốt
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))  # 24h
-
-# auto_error=False để mình có thể dùng optional auth cho các endpoint khác
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
+# ===== JWT CONFIG =====
+# Khi deploy thật: đưa vào .env
+JWT_SECRET_KEY = "CHANGE_ME_TO_A_LONG_RANDOM_SECRET"
+JWT_ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60  # 1 giờ
 
 
 def _validate_password_for_bcrypt(password: str) -> None:
-    # bcrypt giới hạn 72 bytes
+    # bcrypt giới hạn 72 bytes (không phải 72 ký tự)
     if len(password.encode("utf-8")) > 72:
         raise HTTPException(
             status_code=422,
-            detail="Mật khẩu quá dài (bcrypt giới hạn 72 bytes). Hãy dùng mật khẩu ngắn hơn."
+            detail="Mật khẩu quá dài (bcrypt giới hạn 72 bytes). Hãy dùng mật khẩu ngắn hơn.",
         )
 
 
@@ -42,55 +37,44 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, password_hash: str) -> bool:
     plain_password = (plain_password or "").strip()
     _validate_password_for_bcrypt(plain_password)
-    return pwd_context.verify(plain_password, password_hash)
-
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-    to_encode = dict(data)
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-
-def get_current_user(
-    db: Session = Depends(get_db),
-    token: Optional[str] = Depends(oauth2_scheme),
-) -> models.User:
-    """
-    Bắt buộc login: nếu thiếu token -> 401
-    """
-    if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Chưa đăng nhập")
-
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(status_code=401, detail="Token không hợp lệ")
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Token không hợp lệ hoặc đã hết hạn")
-
-    user = db.query(models.User).filter(models.User.id == int(user_id)).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="User không tồn tại")
-    return user
+        return pwd_context.verify(plain_password, password_hash)
+    except Exception:
+        return False
 
 
-def get_optional_user(
-    db: Session = Depends(get_db),
-    token: Optional[str] = Depends(oauth2_scheme),
-) -> Optional[models.User]:
+def create_access_token(
+    subject: str,
+    expires_minutes: int = ACCESS_TOKEN_EXPIRE_MINUTES,
+    extra_claims: Optional[Dict[str, Any]] = None,
+) -> str:
     """
-    Optional login: có token thì trả user, không có thì None
+    subject: thường là user_id dạng string, lưu vào claim "sub"
     """
-    if not token:
-        return None
+    now = datetime.now(timezone.utc)
+    expire = now + timedelta(minutes=expires_minutes)
+
+    payload: Dict[str, Any] = {
+        "sub": str(subject),
+        "iat": int(now.timestamp()),
+        "exp": int(expire.timestamp()),
+    }
+    if extra_claims:
+        payload.update(extra_claims)
+
+    return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+def decode_access_token(token: str) -> Dict[str, Any]:
+    """
+    Trả payload nếu hợp lệ, raise 401 nếu invalid/expired
+    """
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id = payload.get("sub")
-        if not user_id:
-            return None
-        user = db.query(models.User).filter(models.User.id == int(user_id)).first()
-        return user
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        if not payload.get("sub"):
+            raise HTTPException(status_code=401, detail="Token không hợp lệ (thiếu sub)")
+        return payload
+    except ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token đã hết hạn")
     except JWTError:
-        return None
+        raise HTTPException(status_code=401, detail="Token không hợp lệ")

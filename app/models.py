@@ -20,7 +20,7 @@ class History(Base):
     __tablename__ = "histories"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     action_type = Column(String(50), nullable=False)   # ocr/caption/read_url
     input_data = Column(Text, nullable=False)          # url hoặc image_path hoặc metadata

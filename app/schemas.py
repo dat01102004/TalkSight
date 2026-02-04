@@ -1,6 +1,14 @@
+# app/schemas.py
+from __future__ import annotations
+
 from datetime import datetime
-from typing import Any, List, Optional
-from pydantic import BaseModel
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
+
+
+class HealthResponse(BaseModel):
+    status: str = "ok"
 
 
 class RegisterRequest(BaseModel):
@@ -13,38 +21,19 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class AuthResponse(BaseModel):
+# ✅ Đồng bộ main.py: register/login đều trả token
+class AuthTokenResponse(BaseModel):
     user_id: int
     access_token: str
     token_type: str = "bearer"
 
 
-class HistoryItem(BaseModel):
-    id: int
-    user_id: Optional[int]
-    action_type: str
-    input_data: str
-    result_text: str
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
-class HistoryListResponse(BaseModel):
-    items: List[HistoryItem]
-
-
-# (Nếu bạn đang dùng các response khác: OCRResponse/CaptionResponse/ReadUrlResponse
-# thì giữ nguyên hoặc bổ sung bên dưới theo code main.py của bạn.)
-class OCRResponse(BaseModel):
+class UploadImageResponse(BaseModel):
     text: str
-    history_id: Optional[int] = None
 
 
 class CaptionResponse(BaseModel):
-    text: str
-    history_id: Optional[int] = None
+    caption: str
 
 
 class ReadUrlRequest(BaseModel):
@@ -53,7 +42,24 @@ class ReadUrlRequest(BaseModel):
 
 
 class ReadUrlResponse(BaseModel):
+    title: Optional[str] = None
     text: str
     summary: Optional[str] = None
-    title: Optional[str] = None
     history_id: Optional[int] = None
+
+
+class HistoryItem(BaseModel):
+    id: int
+    user_id: int
+    action_type: str
+    input_data: str
+    result_text: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True  # pydantic v2
+        orm_mode = True         # fallback pydantic v1
+
+
+class HistoryResponse(BaseModel):
+    items: List[HistoryItem] = Field(default_factory=list)

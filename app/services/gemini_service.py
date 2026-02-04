@@ -111,18 +111,19 @@ Văn bản:
 def gemini_read_url(
     url: str,
     want_summary: bool = False,
+    summary: Optional[bool] = None,   # <- alias để khỏi lỗi keyword "summary"
 ) -> Tuple[str, Optional[str], Optional[str]]:
     """
-    Trả về:
-    - text: nội dung bài viết
-    - summary: tóm tắt (nếu có)
-    - title: tiêu đề
+    Return: (text, summary_text, title)
     """
+    if summary is not None:
+        want_summary = bool(summary)
 
-    text, title = extract_article_text(url)
+    text, title = extract_article_text(url=url)
 
-    summary: Optional[str] = None
+    summary_text: Optional[str] = None
     if want_summary:
-        summary = gemini_summarize_vi(text)
+        summary_text = gemini_summarize_vi(text)  # <- bạn đang có hàm này thì giữ
+        # nếu chưa có thì tạm return None để test flow trước
 
-    return text, summary, title
+    return text, summary_text, title
