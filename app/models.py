@@ -1,3 +1,4 @@
+# app/models.py
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -13,7 +14,11 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    histories = relationship("History", back_populates="user", cascade="all, delete-orphan")
+    histories = relationship(
+        "History",
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
 
 
 class History(Base):
@@ -22,8 +27,13 @@ class History(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
-    action_type = Column(String(50), nullable=False)   # ocr/caption/read_url
-    input_data = Column(Text, nullable=False)          # url hoặc image_path hoặc metadata
+    # ocr | caption | read_url | read_text ...
+    action_type = Column(String(50), nullable=False)
+
+    # url hoặc đường dẫn ảnh (uploads/xxx.jpg) hoặc metadata JSON string
+    input_data = Column(Text, nullable=False)
+
+    # kết quả: OCR text / caption / article text/summary...
     result_text = Column(Text, nullable=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

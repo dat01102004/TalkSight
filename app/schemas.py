@@ -21,19 +21,26 @@ class LoginRequest(BaseModel):
     password: str
 
 
-# ✅ Đồng bộ main.py: register/login đều trả token
 class AuthTokenResponse(BaseModel):
     user_id: int
     access_token: str
     token_type: str = "bearer"
 
 
+class MeResponse(BaseModel):
+    id: int
+    email: str
+    created_at: datetime
+
+
 class UploadImageResponse(BaseModel):
     text: str
+    history_id: Optional[int] = None
 
 
 class CaptionResponse(BaseModel):
     caption: str
+    history_id: Optional[int] = None
 
 
 class ReadUrlRequest(BaseModel):
@@ -44,7 +51,9 @@ class ReadUrlRequest(BaseModel):
 class ReadUrlResponse(BaseModel):
     title: Optional[str] = None
     text: str
+    tts_text: Optional[str] = None
     summary: Optional[str] = None
+    summary_tts: Optional[str] = None
     history_id: Optional[int] = None
 
 
@@ -56,9 +65,9 @@ class HistoryItem(BaseModel):
     result_text: str
     created_at: datetime
 
-    class Config:
-        from_attributes = True  # pydantic v2
-        orm_mode = True         # fallback pydantic v1
+    model_config = {"from_attributes": True}
+
+
 
 
 class HistoryResponse(BaseModel):

@@ -1,44 +1,30 @@
-
 # app/main.py
 from __future__ import annotations
 
-from datetime import datetime
-import inspect
 import uuid
+from pathlib import Path
+from typing import Optional
 
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
 
-from app.db import get_db
-from app import models
-from app.security import (
-    hash_password,
-    verify_password,
-    create_access_token,
-    decode_access_token,
-)
-from app.services.gemini_service import gemini_ocr, gemini_caption, gemini_read_url
-from app.schemas import (
-    RegisterRequest,
-    LoginRequest,
-    AuthTokenResponse,
-    HealthResponse,
-    UploadImageResponse,
-    CaptionResponse,
-    ReadUrlRequest,
-    ReadUrlResponse,
-    HistoryItem,
-    HistoryResponse,
-)
+from .db import Base, engine, get_db
+from . import models, schemas
+from .security import hash_password, verify_password, create_access_token, decode_access_token
 
-app = FastAPI(title="TalkSight Backend", version="0.3.0")
+from .services.gemini_service import gemini_ocr, gemini_caption, gemini_summarize_vi
+from .services.web_extract import extract_article_text
+from .services.text_clean import clean_tts_text
 
-# CORS (cho Flutter / Web)
+app = FastAPI(title="TalkSight API")
+
+# ===== DB init =====
+Base.metadata.create_all(bind=engine)
+
+# ===== CORS =====
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # dev
@@ -47,209 +33,234 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ===== Swagger "Authorize" dạng dán Bearer token =====
+# ===== Uploads =====
+UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+
+MAX_UPLOAD_MB = 10
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
-def get_current_user(
+def get_current_user_required(
     creds: HTTPAuthorizationCredentials = Depends(bearer_scheme),
     db: Session = Depends(get_db),
 ) -> models.User:
-    """
-    Lấy user từ Bearer token:
-    Header: Authorization: Bearer <access_token>
-    """
     if not creds or not creds.credentials:
-        raise HTTPException(status_code=401, detail="Thiếu Bearer token")
-
-    token = creds.credentials.strip()
-    payload = decode_access_token(token)  # phải raise 401 nếu invalid/expired
-
-    # payload nên chứa "sub" = user_id (chuẩn JWT)
+        raise HTTPException(status_code=401, detail="Thiếu token")
+    payload = decode_access_token(creds.credentials.strip())
     user_id = payload.get("sub")
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Token không hợp lệ (thiếu sub)")
-
     user = db.query(models.User).filter(models.User.id == int(user_id)).first()
     if not user:
         raise HTTPException(status_code=401, detail="User không tồn tại")
     return user
 
 
-# =========================
-# Health
-# =========================
-@app.get("/health", response_model=HealthResponse)
-def health():
-    return HealthResponse(status="ok")
-
-
-# =========================
-# Auth
-# =========================
-@app.post("/auth/register", response_model=AuthTokenResponse)
-def register(payload: RegisterRequest, db: Session = Depends(get_db)):
-    email = (payload.email or "").strip().lower()
-    password = (payload.password or "").strip()
-
-    if "@" not in email or "." not in email:
-        raise HTTPException(status_code=422, detail="Email không hợp lệ (vd: abc@gmail.com)")
-    if len(password) < 6:
-        raise HTTPException(status_code=422, detail="Mật khẩu tối thiểu 6 ký tự")
-
+def get_current_user_optional(
+    creds: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> Optional[models.User]:
+    if not creds or not creds.credentials:
+        return None
     try:
-        existing = db.query(models.User).filter(models.User.email == email).first()
-        if existing:
-            raise HTTPException(status_code=400, detail="Email đã tồn tại")
-
-        user = models.User(email=email, password_hash=hash_password(password))
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-
-        # ✅ trả token luôn (đỡ phải login lần nữa)
-        access_token = create_access_token(subject=str(user.id))
-        return AuthTokenResponse(user_id=user.id, access_token=access_token, token_type="bearer")
-
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(status_code=400, detail="Email đã tồn tại")
-    except HTTPException:
-        db.rollback()
-        raise
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Register lỗi: {type(e).__name__}: {e}")
+        payload = decode_access_token(creds.credentials.strip())
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        return db.query(models.User).filter(models.User.id == int(user_id)).first()
+    except Exception:
+        return None
 
 
-@app.post("/auth/login", response_model=AuthTokenResponse)
-def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    email = (payload.email or "").strip().lower()
-    password = (payload.password or "").strip()
+async def save_upload_file(file: UploadFile) -> tuple[str, bytes]:
+    """
+    Lưu file vào uploads/ và trả về (saved_path, bytes)
+    """
+    suffix = Path(file.filename or "").suffix or ".jpg"
+    name = f"{uuid.uuid4().hex}{suffix}"
+    dest = UPLOAD_DIR / name
 
-    if not email or not password:
-        raise HTTPException(status_code=422, detail="Thiếu email hoặc mật khẩu")
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=422, detail="File rỗng")
 
+    if len(content) > MAX_UPLOAD_MB * 1024 * 1024:
+        raise HTTPException(status_code=413, detail=f"File quá lớn (>{MAX_UPLOAD_MB}MB)")
+
+    dest.write_bytes(content)
+    return str(dest), content
+
+
+@app.get("/health", response_model=schemas.HealthResponse)
+def health():
+    return schemas.HealthResponse()
+
+
+# ===== AUTH =====
+@app.post("/auth/register", response_model=schemas.AuthTokenResponse)
+def register(req: schemas.RegisterRequest, db: Session = Depends(get_db)):
+    email = req.email.strip().lower()
+    if db.query(models.User).filter(models.User.email == email).first():
+        raise HTTPException(status_code=409, detail="Email đã tồn tại")
+
+    user = models.User(email=email, password_hash=hash_password(req.password))
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    token = create_access_token(subject=str(user.id))
+    return schemas.AuthTokenResponse(user_id=user.id, access_token=token)
+
+
+@app.post("/auth/login", response_model=schemas.AuthTokenResponse)
+def login(req: schemas.LoginRequest, db: Session = Depends(get_db)):
+    email = req.email.strip().lower()
     user = db.query(models.User).filter(models.User.email == email).first()
-    if not user:
+    if not user or not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Sai email hoặc mật khẩu")
 
-    if not verify_password(password, user.password_hash):
-        raise HTTPException(status_code=401, detail="Sai email hoặc mật khẩu")
-
-    access_token = create_access_token(subject=str(user.id))
-    return AuthTokenResponse(user_id=user.id, access_token=access_token, token_type="bearer")
+    token = create_access_token(subject=str(user.id))
+    return schemas.AuthTokenResponse(user_id=user.id, access_token=token)
 
 
-# =========================
-# OCR / Caption
-# =========================
-@app.post("/ocr", response_model=UploadImageResponse)
+@app.get("/me", response_model=schemas.MeResponse)
+def me(user: models.User = Depends(get_current_user_required)):
+    return schemas.MeResponse(id=user.id, email=user.email, created_at=user.created_at)
+
+
+# ===== CORE: OCR (Guest OK, Login -> save history) =====
+@app.post("/ocr", response_model=schemas.UploadImageResponse)
 async def ocr_image(
     file: UploadFile = File(...),
-    user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    user: Optional[models.User] = Depends(get_current_user_optional),
 ):
-    # tuỳ bạn xử lý lưu file hay đọc bytes luôn
-    content = await file.read()
-    if not content:
-        raise HTTPException(status_code=422, detail="File rỗng")
+    saved_path, image_bytes = await save_upload_file(file)
 
-    result_text = gemini_ocr(content)  # bạn đang có sẵn
-    return UploadImageResponse(text=result_text)
+    mime_type = file.content_type or "image/jpeg"
+    text_raw = gemini_ocr(image_bytes, mime_type=mime_type)
+    text = clean_tts_text(text_raw)  # ✅ clean để TTS đọc mượt
+
+    history_id = None
+    if user:
+        h = models.History(
+            user_id=user.id,
+            action_type="ocr",
+            input_data=saved_path,
+            result_text=text,  # lưu bản clean luôn
+        )
+        db.add(h)
+        db.commit()
+        db.refresh(h)
+        history_id = h.id
+
+    return schemas.UploadImageResponse(text=text, history_id=history_id)
 
 
-@app.post("/caption", response_model=CaptionResponse)
+# ===== CORE: CAPTION (Guest OK, Login -> save history) =====
+@app.post("/caption", response_model=schemas.CaptionResponse)
 async def caption_image(
     file: UploadFile = File(...),
-    user: models.User = Depends(get_current_user),
-):
-    content = await file.read()
-    if not content:
-        raise HTTPException(status_code=422, detail="File rỗng")
-
-    caption = gemini_caption(content)
-    return CaptionResponse(caption=caption)
-
-
-# =========================
-# Read URL + History
-# =========================
-@app.post("/read/url", response_model=ReadUrlResponse)
-def read_url(
-    payload: ReadUrlRequest,
     db: Session = Depends(get_db),
-    user: models.User = Depends(get_current_user),
+    user: Optional[models.User] = Depends(get_current_user_optional),
 ):
-    url = (payload.url or "").strip()
-    if not url.startswith("http"):
-        raise HTTPException(status_code=422, detail="URL không hợp lệ (phải bắt đầu bằng http/https)")
+    saved_path, image_bytes = await save_upload_file(file)
+
+    mime_type = file.content_type or "image/jpeg"
+    caption_raw = gemini_caption(image_bytes, mime_type=mime_type)
+    caption = clean_tts_text(caption_raw)  # ✅ clean
+
+    history_id = None
+    if user:
+        h = models.History(
+            user_id=user.id,
+            action_type="caption",
+            input_data=saved_path,
+            result_text=caption,
+        )
+        db.add(h)
+        db.commit()
+        db.refresh(h)
+        history_id = h.id
+
+    return schemas.CaptionResponse(caption=caption, history_id=history_id)
+
+
+# ===== CORE: READ URL (Guest OK, Login -> save history) =====
+@app.post("/read/url", response_model=schemas.ReadUrlResponse)
+def read_url(
+    req: schemas.ReadUrlRequest,
+    db: Session = Depends(get_db),
+    user: Optional[models.User] = Depends(get_current_user_optional),
+):
+    url = req.url.strip()
+    if not url:
+        raise HTTPException(status_code=422, detail="URL không hợp lệ")
 
     try:
-        text, summ, title = gemini_read_url(url=url, want_summary=payload.summary)
+        text_raw, title = extract_article_text(url=url)
     except Exception as e:
-        # fallback: vẫn trả được text (đỡ 500)
-        try:
-            text, title = extract_article_text(url=url)
-            summ = None
-        except Exception as e2:
-            raise HTTPException(status_code=500, detail=f"Lỗi đọc URL: {type(e2).__name__}: {e2}")
+        raise HTTPException(status_code=400, detail=f"Không đọc được URL: {e}")
 
-    h = models.History(
-        user_id=user.id,
-        action_type="read_url",
-        input_data=url,
-        result_text=(summ if (payload.summary and summ) else text),
+    summary_raw = gemini_summarize_vi(text_raw) if req.summary else None
+
+    # ✅ clean cho TTS
+    tts_text = clean_tts_text(text_raw)
+    summary_tts = clean_tts_text(summary_raw) if summary_raw else None
+
+    history_id = None
+    if user:
+        # lưu text TTS hoặc summary_tts để đọc cho dễ
+        to_save = summary_tts or tts_text
+        h = models.History(
+            user_id=user.id,
+            action_type="read_url",
+            input_data=url,
+            result_text=to_save,
+        )
+        db.add(h)
+        db.commit()
+        db.refresh(h)
+        history_id = h.id
+
+    return schemas.ReadUrlResponse(
+        title=title,
+        text=text_raw,
+        tts_text=tts_text,
+        summary=summary_raw,
+        summary_tts=summary_tts,
+        history_id=history_id,
     )
-    db.add(h)
-    db.commit()
-    db.refresh(h)
-
-    return ReadUrlResponse(title=title, text=text, summary=summ, history_id=h.id)
 
 
-@app.get("/history", response_model=HistoryResponse)
+# ===== HISTORY: chỉ login mới được xem/xóa =====
+@app.get("/history", response_model=schemas.HistoryResponse)
 def get_history(
     db: Session = Depends(get_db),
-    user: models.User = Depends(get_current_user),
-    limit: int = 50,
+    user: models.User = Depends(get_current_user_required),
+    type: Optional[str] = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
 ):
-    limit = max(1, min(limit, 200))
-    rows = (
-        db.query(models.History)
-        .filter(models.History.user_id == user.id)
-        .order_by(models.History.created_at.desc())
-        .limit(limit)
-        .all()
-    )
-
-    items = [
-        HistoryItem(
-            id=r.id,
-            user_id=r.user_id,
-            action_type=r.action_type,
-            input_data=r.input_data,
-            result_text=r.result_text,
-            created_at=r.created_at,
-        )
-        for r in rows
-    ]
-    return HistoryResponse(items=items)
+    q = db.query(models.History).filter(models.History.user_id == user.id)
+    if type:
+        q = q.filter(models.History.action_type == type)
+    items = q.order_by(models.History.created_at.desc()).limit(limit).all()
+    return schemas.HistoryResponse(items=items)
 
 
 @app.delete("/history/{history_id}")
-def delete_history(
+def delete_history_item(
     history_id: int,
     db: Session = Depends(get_db),
-    user: models.User = Depends(get_current_user),
+    user: models.User = Depends(get_current_user_required),
 ):
-    row = (
+    h = (
         db.query(models.History)
         .filter(models.History.id == history_id, models.History.user_id == user.id)
         .first()
     )
-    if not row:
-        raise HTTPException(status_code=404, detail="Không tìm thấy history hoặc không có quyền xoá")
-
-    db.delete(row)
+    if not h:
+        raise HTTPException(status_code=404, detail="Không tìm thấy history")
+    db.delete(h)
     db.commit()
-    return {"deleted": True, "id": history_id}
+    return {"ok": True}

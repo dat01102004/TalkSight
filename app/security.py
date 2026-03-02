@@ -1,6 +1,7 @@
 # app/security.py
 from __future__ import annotations
 
+import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
@@ -11,14 +12,12 @@ from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # ===== JWT CONFIG =====
-# Khi deploy thật: đưa vào .env
-JWT_SECRET_KEY = "CHANGE_ME_TO_A_LONG_RANDOM_SECRET"
-JWT_ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60  # 1 giờ
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "CHANGE_ME_TO_A_LONG_RANDOM_SECRET")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
 
 
 def _validate_password_for_bcrypt(password: str) -> None:
-    # bcrypt giới hạn 72 bytes (không phải 72 ký tự)
     if len(password.encode("utf-8")) > 72:
         raise HTTPException(
             status_code=422,
@@ -48,9 +47,6 @@ def create_access_token(
     expires_minutes: int = ACCESS_TOKEN_EXPIRE_MINUTES,
     extra_claims: Optional[Dict[str, Any]] = None,
 ) -> str:
-    """
-    subject: thường là user_id dạng string, lưu vào claim "sub"
-    """
     now = datetime.now(timezone.utc)
     expire = now + timedelta(minutes=expires_minutes)
 
@@ -66,9 +62,6 @@ def create_access_token(
 
 
 def decode_access_token(token: str) -> Dict[str, Any]:
-    """
-    Trả payload nếu hợp lệ, raise 401 nếu invalid/expired
-    """
     try:
         payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
         if not payload.get("sub"):
