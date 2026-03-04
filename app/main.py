@@ -23,9 +23,10 @@ from .services.gemini_service import (
     gemini_summarize_vi,
     GeminiQuotaError,
 )
+from .routers.news import router as news_router
 
 app = FastAPI(title="TalkSight API")
-
+app.include_router(news_router)
 # ===== DB init =====
 Base.metadata.create_all(bind=engine)
 

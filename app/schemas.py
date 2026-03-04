@@ -66,7 +66,15 @@ class HistoryItem(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+class NewsItem(BaseModel):
+    title: str
+    link: str
+    source: Optional[str] = None
+    published: Optional[str] = None
 
+
+class NewsResponse(BaseModel):
+    items: List[NewsItem] = Field(default_factory=list)
 
 
 
