@@ -15,9 +15,14 @@ from .db import Base, engine, get_db
 from . import models, schemas
 from .security import hash_password, verify_password, create_access_token, decode_access_token
 
-from .services.gemini_service import gemini_ocr, gemini_caption, gemini_summarize_vi
 from .services.web_extract import extract_article_text
 from .services.text_clean import clean_tts_text
+from .services.gemini_service import (
+    gemini_ocr,
+    gemini_caption,
+    gemini_summarize_vi,
+    GeminiQuotaError,
+)
 
 app = FastAPI(title="TalkSight API")
 
@@ -91,6 +96,13 @@ async def save_upload_file(file: UploadFile) -> tuple[str, bytes]:
     return str(dest), content
 
 
+def _raise_quota_http(e: GeminiQuotaError) -> None:
+    headers = {}
+    if e.retry_after is not None:
+        headers["Retry-After"] = str(e.retry_after)
+    raise HTTPException(status_code=e.status_code, detail=e.message, headers=headers)
+
+
 @app.get("/health", response_model=schemas.HealthResponse)
 def health():
     return schemas.HealthResponse()
@@ -128,7 +140,7 @@ def me(user: models.User = Depends(get_current_user_required)):
     return schemas.MeResponse(id=user.id, email=user.email, created_at=user.created_at)
 
 
-# ===== CORE: OCR (Guest OK, Login -> save history) =====
+# ===== CORE: OCR =====
 @app.post("/ocr", response_model=schemas.UploadImageResponse)
 async def ocr_image(
     file: UploadFile = File(...),
@@ -136,10 +148,16 @@ async def ocr_image(
     user: Optional[models.User] = Depends(get_current_user_optional),
 ):
     saved_path, image_bytes = await save_upload_file(file)
-
     mime_type = file.content_type or "image/jpeg"
-    text_raw = gemini_ocr(image_bytes, mime_type=mime_type)
-    text = clean_tts_text(text_raw)  # ✅ clean để TTS đọc mượt
+
+    try:
+        text_raw = gemini_ocr(image_bytes, mime_type=mime_type)
+    except GeminiQuotaError as qe:
+        _raise_quota_http(qe)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OCR lỗi: {e}")
+
+    text = clean_tts_text(text_raw)
 
     history_id = None
     if user:
@@ -147,7 +165,7 @@ async def ocr_image(
             user_id=user.id,
             action_type="ocr",
             input_data=saved_path,
-            result_text=text,  # lưu bản clean luôn
+            result_text=text,
         )
         db.add(h)
         db.commit()
@@ -157,7 +175,7 @@ async def ocr_image(
     return schemas.UploadImageResponse(text=text, history_id=history_id)
 
 
-# ===== CORE: CAPTION (Guest OK, Login -> save history) =====
+# ===== CORE: CAPTION =====
 @app.post("/caption", response_model=schemas.CaptionResponse)
 async def caption_image(
     file: UploadFile = File(...),
@@ -165,10 +183,16 @@ async def caption_image(
     user: Optional[models.User] = Depends(get_current_user_optional),
 ):
     saved_path, image_bytes = await save_upload_file(file)
-
     mime_type = file.content_type or "image/jpeg"
-    caption_raw = gemini_caption(image_bytes, mime_type=mime_type)
-    caption = clean_tts_text(caption_raw)  # ✅ clean
+
+    try:
+        caption_raw = gemini_caption(image_bytes, mime_type=mime_type)
+    except GeminiQuotaError as qe:
+        _raise_quota_http(qe)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Caption lỗi: {e}")
+
+    caption = clean_tts_text(caption_raw)
 
     history_id = None
     if user:
@@ -186,7 +210,7 @@ async def caption_image(
     return schemas.CaptionResponse(caption=caption, history_id=history_id)
 
 
-# ===== CORE: READ URL (Guest OK, Login -> save history) =====
+# ===== CORE: READ URL =====
 @app.post("/read/url", response_model=schemas.ReadUrlResponse)
 def read_url(
     req: schemas.ReadUrlRequest,
@@ -197,20 +221,29 @@ def read_url(
     if not url:
         raise HTTPException(status_code=422, detail="URL không hợp lệ")
 
+    # 1) extract
     try:
         text_raw, title = extract_article_text(url=url)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Không đọc được URL: {e}")
 
-    summary_raw = gemini_summarize_vi(text_raw) if req.summary else None
+    # 2) summarize
+    summary_raw: Optional[str] = None
+    if req.summary:
+        try:
+            summary_raw = gemini_summarize_vi(text_raw)
+        except GeminiQuotaError as qe:
+            _raise_quota_http(qe)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Summarize lỗi: {e}")
 
-    # ✅ clean cho TTS
+    # 3) clean for TTS
     tts_text = clean_tts_text(text_raw)
     summary_tts = clean_tts_text(summary_raw) if summary_raw else None
 
+    # 4) save history
     history_id = None
     if user:
-        # lưu text TTS hoặc summary_tts để đọc cho dễ
         to_save = summary_tts or tts_text
         h = models.History(
             user_id=user.id,
@@ -233,7 +266,7 @@ def read_url(
     )
 
 
-# ===== HISTORY: chỉ login mới được xem/xóa =====
+# ===== HISTORY =====
 @app.get("/history", response_model=schemas.HistoryResponse)
 def get_history(
     db: Session = Depends(get_db),
