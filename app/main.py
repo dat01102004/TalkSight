@@ -1,4 +1,3 @@
-# app/main.py
 from __future__ import annotations
 
 import uuid
@@ -15,7 +14,7 @@ from .db import Base, engine, get_db
 from . import models, schemas
 from .security import hash_password, verify_password, create_access_token, decode_access_token
 
-from .services.web_extract import extract_article_text
+from .services.web_extract import extract_article_text_with_meta
 from .services.text_clean import clean_tts_text
 from .services.gemini_service import (
     gemini_ocr,
@@ -27,6 +26,7 @@ from .routers.news import router as news_router
 
 app = FastAPI(title="TalkSight API")
 app.include_router(news_router)
+
 # ===== DB init =====
 Base.metadata.create_all(bind=engine)
 
@@ -102,6 +102,47 @@ def _raise_quota_http(e: GeminiQuotaError) -> None:
     if e.retry_after is not None:
         headers["Retry-After"] = str(e.retry_after)
     raise HTTPException(status_code=e.status_code, detail=e.message, headers=headers)
+
+
+def _looks_like_google_news_boilerplate(title: Optional[str], text: str) -> bool:
+    hay = f"{title or ''}\n{text}".lower()
+
+    signals = [
+        "google news",
+        "dịch vụ tập hợp",
+        "hàng nghìn nguồn tin",
+        "top stories",
+        "top news",
+        "cập nhật liên tục",
+        "cá nhân hóa",
+        "personalized",
+    ]
+
+    matched = sum(1 for s in signals if s in hay)
+    return matched >= 2
+
+
+def _should_drop_generic_title(title: Optional[str]) -> bool:
+    if not title or not title.strip():
+        return True
+
+    t = title.strip().lower()
+    generic = {
+        "google news",
+        "news",
+        "bài báo",
+        "bai bao",
+        "tin tức",
+        "tin tuc",
+    }
+
+    if t in generic:
+        return True
+
+    if "google news" in t:
+        return True
+
+    return False
 
 
 @app.get("/health", response_model=schemas.HealthResponse)
@@ -222,11 +263,25 @@ def read_url(
     if not url:
         raise HTTPException(status_code=422, detail="URL không hợp lệ")
 
-    # 1) extract
+    # 1) extract + resolve Google News -> bài gốc
     try:
-        text_raw, title = extract_article_text(url=url)
+        text_raw, title, resolved_url = extract_article_text_with_meta(url=url)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Không đọc được URL: {e}")
+
+    text_raw = (text_raw or "").strip()
+
+    if not text_raw:
+        raise HTTPException(status_code=422, detail="Không trích xuất được nội dung bài báo")
+
+    if _looks_like_google_news_boilerplate(title, text_raw):
+        raise HTTPException(
+            status_code=422,
+            detail="Không lấy được nội dung bài báo gốc từ Google News",
+        )
+
+    # Nếu title quá generic thì để frontend fallback về title từ feed
+    final_title: Optional[str] = None if _should_drop_generic_title(title) else title
 
     # 2) summarize
     summary_raw: Optional[str] = None
@@ -237,6 +292,12 @@ def read_url(
             _raise_quota_http(qe)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Summarize lỗi: {e}")
+
+        if summary_raw and _looks_like_google_news_boilerplate(final_title, summary_raw):
+            raise HTTPException(
+                status_code=422,
+                detail="Tóm tắt trả về chưa đúng nội dung bài báo gốc",
+            )
 
     # 3) clean for TTS
     tts_text = clean_tts_text(text_raw)
@@ -249,7 +310,7 @@ def read_url(
         h = models.History(
             user_id=user.id,
             action_type="read_url",
-            input_data=url,
+            input_data=resolved_url or url,
             result_text=to_save,
         )
         db.add(h)
@@ -258,7 +319,7 @@ def read_url(
         history_id = h.id
 
     return schemas.ReadUrlResponse(
-        title=title,
+        title=final_title,
         text=text_raw,
         tts_text=tts_text,
         summary=summary_raw,
