@@ -4,25 +4,31 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Query
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-from .db import Base, engine, get_db
 from . import models, schemas
-from .security import hash_password, verify_password, create_access_token, decode_access_token
-
-from .services.web_extract import extract_article_text_with_meta
-from .services.text_clean import clean_tts_text
-from .services.gemini_service import (
-    gemini_ocr,
-    gemini_caption,
-    gemini_summarize_vi,
-    GeminiQuotaError,
-)
+from .config import MAX_UPLOAD_BYTES, UPLOAD_DIR as UPLOAD_DIR_SETTING
+from .db import Base, engine, get_db
 from .routers.news import router as news_router
+from .security import (
+    create_access_token,
+    decode_access_token,
+    hash_password,
+    verify_password,
+)
+from .services.gemini_service import (
+    GeminiQuotaError,
+    gemini_caption,
+    gemini_ocr,
+    gemini_summarize_vi,
+)
+from .services.image_cache import cache_image_result, get_cached_image_result
+from .services.text_clean import clean_tts_text
+from .services.web_extract import extract_article_text_with_meta
 
 app = FastAPI(title="TalkSight API")
 app.include_router(news_router)
@@ -40,11 +46,10 @@ app.add_middleware(
 )
 
 # ===== Uploads =====
-UPLOAD_DIR = Path("uploads")
+UPLOAD_DIR = Path(UPLOAD_DIR_SETTING)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
-MAX_UPLOAD_MB = 10
 bearer_scheme = HTTPBearer(auto_error=False)
 
 
@@ -90,8 +95,9 @@ async def save_upload_file(file: UploadFile) -> tuple[str, bytes]:
     if not content:
         raise HTTPException(status_code=422, detail="File rỗng")
 
-    if len(content) > MAX_UPLOAD_MB * 1024 * 1024:
-        raise HTTPException(status_code=413, detail=f"File quá lớn (>{MAX_UPLOAD_MB}MB)")
+    if len(content) > MAX_UPLOAD_BYTES:
+        max_mb = round(MAX_UPLOAD_BYTES / (1024 * 1024))
+        raise HTTPException(status_code=413, detail=f"File quá lớn (>{max_mb}MB)")
 
     dest.write_bytes(content)
     return str(dest), content
@@ -145,6 +151,28 @@ def _should_drop_generic_title(title: Optional[str]) -> bool:
     return False
 
 
+def _run_ocr_with_cache(image_bytes: bytes, mime_type: str) -> str:
+    cached = get_cached_image_result(mode="ocr", image_bytes=image_bytes)
+    if cached:
+        return cached.result_text
+
+    text_raw = gemini_ocr(image_bytes, mime_type=mime_type)
+    text = clean_tts_text(text_raw)
+    cache_image_result(mode="ocr", image_bytes=image_bytes, result_text=text)
+    return text
+
+
+def _run_caption_with_cache(image_bytes: bytes, mime_type: str) -> str:
+    cached = get_cached_image_result(mode="caption", image_bytes=image_bytes)
+    if cached:
+        return cached.result_text
+
+    caption_raw = gemini_caption(image_bytes, mime_type=mime_type)
+    caption = clean_tts_text(caption_raw)
+    cache_image_result(mode="caption", image_bytes=image_bytes, result_text=caption)
+    return caption
+
+
 @app.get("/health", response_model=schemas.HealthResponse)
 def health():
     return schemas.HealthResponse()
@@ -193,13 +221,11 @@ async def ocr_image(
     mime_type = file.content_type or "image/jpeg"
 
     try:
-        text_raw = gemini_ocr(image_bytes, mime_type=mime_type)
+        text = _run_ocr_with_cache(image_bytes=image_bytes, mime_type=mime_type)
     except GeminiQuotaError as qe:
         _raise_quota_http(qe)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"OCR lỗi: {e}")
-
-    text = clean_tts_text(text_raw)
 
     history_id = None
     if user:
@@ -228,13 +254,11 @@ async def caption_image(
     mime_type = file.content_type or "image/jpeg"
 
     try:
-        caption_raw = gemini_caption(image_bytes, mime_type=mime_type)
+        caption = _run_caption_with_cache(image_bytes=image_bytes, mime_type=mime_type)
     except GeminiQuotaError as qe:
         _raise_quota_http(qe)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Caption lỗi: {e}")
-
-    caption = clean_tts_text(caption_raw)
 
     history_id = None
     if user:

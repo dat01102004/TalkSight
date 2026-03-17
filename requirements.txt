@@ -12,4 +12,4 @@ beautifulsoup4==4.12.3
 readability-lxml==0.8.1
 lxml==5.2.2
 python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
+Pillow==11.1.0

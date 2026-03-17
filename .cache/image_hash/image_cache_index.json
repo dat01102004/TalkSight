@@ -1,0 +1,29 @@
+{
+  "caption:cafbde0815ceab87af04c935e8326f0d4fd451531a09bb06b77b618eb59eb5d7": {
+    "mode": "caption",
+    "canonical_sha256": "cafbde0815ceab87af04c935e8326f0d4fd451531a09bb06b77b618eb59eb5d7",
+    "dhash_hex": "edd8d93191c66607",
+    "result_text": "Bức ảnh được chụp từ một góc phòng ngủ nhìn qua cửa ra vào hướng sang phòng khách. Phía trước là mép giường trải ga màu xanh lá cây và một chiếc ghế nhựa đỏ đặt sát bức tường trắng. Qua ô cửa, phòng khách hiện ra với bộ bàn ghế gỗ màu nâu sẫm, trên ghế có một chú gấu bông lớn màu trắng đang nằm. Trên tường phòng khách có treo một bức tranh trang trí và bên cạnh là khung cửa sổ với rèm màu cam nhạt.",
+    "allow_near_match": true,
+    "created_at": "2026-03-17T08:15:47.941995+00:00",
+    "last_hit_at": "2026-03-17T08:15:47.941995+00:00"
+  },
+  "caption:65fc0ba195dc666caa87ee2d97895d495b9ec771275657639f34e963dcbc5355": {
+    "mode": "caption",
+    "canonical_sha256": "65fc0ba195dc666caa87ee2d97895d495b9ec771275657639f34e963dcbc5355",
+    "dhash_hex": "6e2e475272640d9c",
+    "result_text": "Góc làm việc được đặt cạnh cửa sổ có song sắt, đón ánh sáng tự nhiên từ bên ngoài. Trên bàn là một chiếc máy tính xách tay đang mở video YouTube về xe hơi và một màn hình rời bên phải hiển thị các dòng mã lập trình. Phía xa qua khung cửa sổ, bạn có thể thấy lá cờ Việt Nam đang tung bay dưới bầu trời sáng. Ở góc dưới bên phải tấm ảnh là một phần của chiếc bàn phím cơ với các phím màu trắng và đen.",
+    "allow_near_match": true,
+    "created_at": "2026-03-17T08:16:25.817339+00:00",
+    "last_hit_at": "2026-03-17T08:16:25.817339+00:00"
+  },
+  "caption:f94d40daadcbccd090accb0d425f2a0b84034d727c3a2f8381538ecd46d53232": {
+    "mode": "caption",
+    "canonical_sha256": "f94d40daadcbccd090accb0d425f2a0b84034d727c3a2f8381538ecd46d53232",
+    "dhash_hex": "222227233372869c",
+    "result_text": "Một chiếc laptop đen với bàn phím có đèn nền màu sắc đang mở video YouTube được đặt ở vị trí trung tâm. Bên phải là một màn hình máy tính phụ hiển thị các dòng mã code trên nền tối, đặt cạnh khung cửa sổ lớn có nhiều ô kính. Qua ô cửa, bạn có thể thấy bầu trời sáng cùng một lá cờ Việt Nam đang bay phía xa. Ở góc trái tấm hình, hai cây vợt cầu lông được treo ngược bên cạnh tấm rèm cửa màu vàng.",
+    "allow_near_match": true,
+    "created_at": "2026-03-17T08:17:04.760911+00:00",
+    "last_hit_at": "2026-03-17T08:17:04.760911+00:00"
+  }
+}
