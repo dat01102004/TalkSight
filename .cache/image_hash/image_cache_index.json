@@ -1,29 +1,65 @@
 {
-  "caption:cafbde0815ceab87af04c935e8326f0d4fd451531a09bb06b77b618eb59eb5d7": {
+  "caption:ee0aa3c5adb55f38cd5a775c0dea8753c2f7dc6b2f7d05fb025b2f0412fd357d": {
     "mode": "caption",
-    "canonical_sha256": "cafbde0815ceab87af04c935e8326f0d4fd451531a09bb06b77b618eb59eb5d7",
-    "dhash_hex": "edd8d93191c66607",
-    "result_text": "Bức ảnh được chụp từ một góc phòng ngủ nhìn qua cửa ra vào hướng sang phòng khách. Phía trước là mép giường trải ga màu xanh lá cây và một chiếc ghế nhựa đỏ đặt sát bức tường trắng. Qua ô cửa, phòng khách hiện ra với bộ bàn ghế gỗ màu nâu sẫm, trên ghế có một chú gấu bông lớn màu trắng đang nằm. Trên tường phòng khách có treo một bức tranh trang trí và bên cạnh là khung cửa sổ với rèm màu cam nhạt.",
+    "canonical_sha256": "ee0aa3c5adb55f38cd5a775c0dea8753c2f7dc6b2f7d05fb025b2f0412fd357d",
+    "dhash_hex": "a8b8dbbb73a3207c",
+    "result_text": "Bức ảnh chụp một góc bàn làm việc với nhiều đồ dùng cá nhân được sắp xếp khá bừa bộn. Nổi bật bên phải là một bình giữ nhiệt lớn màu xanh nhạt có ống hút kim loại, ngay phía trước nó là một chiếc đồng hồ đeo tay dây bạc và một sợi dây sạc màu xanh dương. Ở giữa bàn có một chiếc lược màu tím nằm cạnh chân bình nước. Phía trên mảng tường trắng bên trái, nhiều loại thẻ tên và dây cáp sạc đen trắng được treo lủng lẳng.",
     "allow_near_match": true,
-    "created_at": "2026-03-17T08:15:47.941995+00:00",
-    "last_hit_at": "2026-03-17T08:15:47.941995+00:00"
+    "created_at": "2026-03-23T00:29:41.617116+00:00",
+    "last_hit_at": "2026-03-23T00:30:36.060869+00:00"
   },
-  "caption:65fc0ba195dc666caa87ee2d97895d495b9ec771275657639f34e963dcbc5355": {
-    "mode": "caption",
-    "canonical_sha256": "65fc0ba195dc666caa87ee2d97895d495b9ec771275657639f34e963dcbc5355",
-    "dhash_hex": "6e2e475272640d9c",
-    "result_text": "Góc làm việc được đặt cạnh cửa sổ có song sắt, đón ánh sáng tự nhiên từ bên ngoài. Trên bàn là một chiếc máy tính xách tay đang mở video YouTube về xe hơi và một màn hình rời bên phải hiển thị các dòng mã lập trình. Phía xa qua khung cửa sổ, bạn có thể thấy lá cờ Việt Nam đang tung bay dưới bầu trời sáng. Ở góc dưới bên phải tấm ảnh là một phần của chiếc bàn phím cơ với các phím màu trắng và đen.",
+  "ocr:83049cc409ffbce38ba4a6e38afcc3a6f995e52b24de797175b4476beda80676": {
+    "mode": "ocr",
+    "canonical_sha256": "83049cc409ffbce38ba4a6e38afcc3a6f995e52b24de797175b4476beda80676",
+    "dhash_hex": "a882beffdeb767c3",
+    "result_text": "Hoàn Trường ĐH Tây nguyên ĐỀ THI KẾT THÚC HỌC PHẦN (2024-2025) Khoa KHTN và CN Môn thi: Nhập môn Hệ điều hành (đề số 3) Bộ môn CNTT Lớp: Công nghệ thông tin K22 Thời gian: 90p Đề 3: Ngô Thanh Đạt __________________________________________________________________________ Câu 1: (3đ) a. . Hãy phân biệt hệ điều hành tập trung và phân tán. Cho biết cấu trúc và các thành phần chính của hệ thống máy tính là gì? Ví dụ cụ thể các thành phần trên một hệ điều hành cụ thể. b. Giới thiệu sơ lược về quản lý tiến trình hoặc quản lý bộ nhớ của hệ điều hành mà bạn đã nghiên cứu. Câu 2: (2đ) a. Tiến trình là gì? So sánh hai tiến trình song song có quan hệ và song song độc lập hoặc phân cấp và độc lập? Cho ví dụ. b. Nêu ba hiện tượng lỗi xảy ra được hệ điều hành thông báo trong vấn đề quản lý tập tin, quản lý vào/ra, quản lý bộ nhớ. Câu 3: (2đ) a. Trình bày chiến lược phân trang bộ nhớ. Để truy cập tới một dữ liệu cần bao nhiêu lần hướng tới bộ nhớ? Cho biết phương pháp khắc phục khi bị phân mảnh bộ nhớ. b. Cho chuỗi truy xuất trang như sau: 1, 7, 6, 5, 5, 3, 0, 1, 7, 4, 1, 7, 3, 4, 6, 1, 3 Có bao nhiêu lỗi trang xảy ra khi sử dụng giải thuật thay thế FIFO và LRU với số khung trang là 3. Câu 4: (3đ) Xét một tập các tiến trình, với thời điểm vào danh sách sẵn sàng (ready) và thời gian cần bộ xử lý (processor) của mỗi tiến trình được mô tả như sau (giả sử các tiến trình cùng được đưa vào hệ thống tại thời điểm 0, nhưng chỉ có P1 bắt đầu sử dụng Processor): . Tiến trình Thời điểm vào (ready) Thời gian cần processor P1 0 10 P2 1 12 P3 2",
     "allow_near_match": true,
-    "created_at": "2026-03-17T08:16:25.817339+00:00",
-    "last_hit_at": "2026-03-17T08:16:25.817339+00:00"
+    "created_at": "2026-03-23T00:35:26.922990+00:00",
+    "last_hit_at": "2026-03-23T00:35:26.922990+00:00"
   },
-  "caption:f94d40daadcbccd090accb0d425f2a0b84034d727c3a2f8381538ecd46d53232": {
-    "mode": "caption",
-    "canonical_sha256": "f94d40daadcbccd090accb0d425f2a0b84034d727c3a2f8381538ecd46d53232",
-    "dhash_hex": "222227233372869c",
-    "result_text": "Một chiếc laptop đen với bàn phím có đèn nền màu sắc đang mở video YouTube được đặt ở vị trí trung tâm. Bên phải là một màn hình máy tính phụ hiển thị các dòng mã code trên nền tối, đặt cạnh khung cửa sổ lớn có nhiều ô kính. Qua ô cửa, bạn có thể thấy bầu trời sáng cùng một lá cờ Việt Nam đang bay phía xa. Ở góc trái tấm hình, hai cây vợt cầu lông được treo ngược bên cạnh tấm rèm cửa màu vàng.",
+  "ocr:00d8d7efa9536edc901bcfb978f0b954bf650b5a59343c7bf72da44566f8e918": {
+    "mode": "ocr",
+    "canonical_sha256": "00d8d7efa9536edc901bcfb978f0b954bf650b5a59343c7bf72da44566f8e918",
+    "dhash_hex": "9f9d951b1999939b",
+    "result_text": "Dựa trên hình ảnh bạn cung cấp, đây là nội dung văn bản được trích xuất (do ảnh khá mờ nên một số ký tự nhỏ có thể có sai sót nhẹ): . Lưu tài khoản Chuyển khoản Mở mã QR cho người khác để chuyển trong Agribank - Liên ngân hàng 04111192. 067 THAI DINH HUY 8222205011778 Agribank - Chi nhánh Đại Nam - Đắk Lắk Lưu tài khoản Chuyển khoản",
     "allow_near_match": true,
-    "created_at": "2026-03-17T08:17:04.760911+00:00",
-    "last_hit_at": "2026-03-17T08:17:04.760911+00:00"
+    "created_at": "2026-03-23T00:37:03.560430+00:00",
+    "last_hit_at": "2026-03-23T00:37:03.560430+00:00"
+  },
+  "ocr:85715bdee6633bf6051b2084560ae620a38444a650faa4a67f4c70f025ba7c71": {
+    "mode": "ocr",
+    "canonical_sha256": "85715bdee6633bf6051b2084560ae620a38444a650faa4a67f4c70f025ba7c71",
+    "dhash_hex": "0f0f3f3f3f7f3ffe",
+    "result_text": "Dưới đây là nội dung văn bản được trích xuất từ ảnh: . 56. không chảy máu, PLT $\\downarrow$ < 50k, BC, HC bt $\\rightarrow$ $\\Delta$ 57. ITP kéo dài là gì? 58. HbsAg đặc điểm (xh lúc nào, .. .) 59. Hb 6. , tăng HA, thiếu máu cơ tim $\\rightarrow$ nâng Hb lên bn 60. Tại sao rửa hcầu 3 lần 61. TH phải trì hoãn hiến máu 62. bili bt, Ferritin $\\downarrow$, sắt ht $\\downarrow$ $\\rightarrow$ $\\Delta$ gì, có thể là Ngx gì? 63. hepcidin có td gì? 64. Ngx không gây suy tủy (Hội chứng)",
+    "allow_near_match": true,
+    "created_at": "2026-03-23T02:43:21.877917+00:00",
+    "last_hit_at": "2026-03-23T02:43:21.877917+00:00"
+  },
+  "ocr:b058bd2bc12e974b00412d4f1ff23bd9d9c70274987b91738a9d8533828177e5": {
+    "mode": "ocr",
+    "canonical_sha256": "b058bd2bc12e974b00412d4f1ff23bd9d9c70274987b91738a9d8533828177e5",
+    "dhash_hex": "0301451d77f3f1a7",
+    "result_text": "Dưới đây là toàn bộ văn bản được trích xuất từ ảnh, giữ nguyên các dòng và các ký hiệu: .. .. khiên tiết 1. Đỉnh 31. TC chính của Lupus (nhạy cảm với XN) 32. XN kháng thể Lupus: DsDNA, Sm 33. Đặc điểm hạt tophi phải / k phải 34. Tiêu chuẩn k phải của Gout theo Bennet Wood 1968 35. Ngx gây loãng x não có thay đổi được 36. Mô hình FRAX đánh giá ở vị trí x nào 37. Bướu giáp ( Basedow? ?) thì xuất hiện ở vị trí nào? 38. Trong ( cường giáp? ) TC nào k cùng cơ chế: - lồi mắt - bạch tạng - Ngón tay dùi trống - phù niêm trc x. chày 38. Ngx không phải tiên phát của suy giáp 39. K giáp điều trị ưu tiên là? 40. TSH 0, 05 FT4: 8 -> [đã gạch] | k sờ thấy bất thường giáp, mắt lồi -> XN tiếp theo SA giáp: T bình mm toàn giáp 41. trường hồ. .. Koho (táo bón, THT, FT4↑) 42. Bướu giáp có tc nào nghĩ đến k trung bình. 43. ĐTD là gì? 44. ĐTD type 1b (so với type 2)? ? 45. Tiêu chuẩn Δ ĐTD tốt nhất 46. Đặc điểm k có ở ĐTD type 2 47. Nữ 80 tuổi, thể trạng mập nhịn ăn từ đêm, chỉ uống nước, kêu đtk làm NP dung nạp đh -> làm XN gì? 48. Td của vđt thể lực ở BN ĐTD 49. Δ HC Cushing dùng: Cort nước tiểu 24h 50. 2 nhóm thuốc làm tăng nhạy cảm insulin? 51. Ngx suy thượng thận nguyên phát 52. Cơ chế chính hạ Na máu do thận của Xơ gan 53. BN không chấn thương, thấy xh mảng bầm, chấm xh da -> làm CLS gì 54. BN chấn thương mạch [đã gạch] 100, HA 90/60, Hb 9. -> truyền gì? 55. xh giảm TC không có tc nào",
+    "allow_near_match": true,
+    "created_at": "2026-03-23T02:44:48.328312+00:00",
+    "last_hit_at": "2026-03-23T02:44:48.328312+00:00"
+  },
+  "ocr:b2c794a92a753bc3838acccedcc499c2344db3f6833a0ff9693c8ca7b9d73b3f": {
+    "mode": "ocr",
+    "canonical_sha256": "b2c794a92a753bc3838acccedcc499c2344db3f6833a0ff9693c8ca7b9d73b3f",
+    "dhash_hex": "575b4f5f67470181",
+    "result_text": "1. Sau tiêm vacxin VGB -> xét nghiệm thấy? 2. Điều trị đặc hiệu VG 3. Tiên lượng tử vong xơ gan bằng chỉ số? (MELD) 4. Biến chứng thường gặp của xơ gan 5. Δsb: BN xơ gan, báng độ 3, uống rượu nhiều, cầu phân đen, thăm tr hậu đen dính găng 6. Δsb: BN xơ gan, vàng da, uống rượu nhiều, đau bụng, cầu lỏng 8l/ngày 7. Những nguyên nhân gây tăng Amylase 8. Những thang điểm đánh giá Viêm tụy cấp: bisap, balthaza, Ranson, Imrie, Marshall 9. Δ có thể: BN thể trạng béo, uống rượu nhiều, Amylase 400, đau bụng, SA: AST 70 ALT 80 (không duy nhất) 10. Cơ chế VTC 11. Amylase tăng nhanh trong 24 giờ đầu và trở về bt 2-3 ngày sau đó 12. Forrest IIc, còn đau bụng, đi cầu phân đen -> chỉ định nhập? 13. HA 90/60, mạch 100, Hb 9. , nôn, đi cầu ồ ạt máu đỏ tươi -> chỉ định truyền gì? -> Δ 14. Thuốc trước nội soi? 15. Dieulafoy là gì? (chảy máu từ đâu? ) 16. Những nguyên nhân có thể XHTH 17. lo', urê, Hb. .. đánh giá đc XHTH theo thang điểm nào? 18. TC cảnh báo của loét DDTT 19. Liệu pháp PPI - loét DDTT 20. Chỉ định XN HP 21. Tiêu chuẩn chẩn đoán VTC 22. Viêm khớp dạng thấp ACR 1987 - cần BN tiêu chuẩn để Δ 23. VKDT ≠ lupus: CCP? 24. Xquang của VKDT 25. Tc phải / không phải của VKDT 26. BN sưng đau khớp cổ tay 2 bên, .. . Δ 27. TS đau khớp bàn ngón I 10 năm trước, hết khỏi trong 1 tuần, hiện sưng đau khớp. .. thử với colchicien trong 6 giờ 28. Cơ chế bệnh sinh, Ngx có thể của VKDT / Lupus 29. Kén Baker là: khoeo chân",
+    "allow_near_match": true,
+    "created_at": "2026-03-23T02:48:13.261653+00:00",
+    "last_hit_at": "2026-03-23T02:48:13.261653+00:00"
+  },
+  "caption:a58b94ea84a86d5b91d92ff51f1e1bd93ae9a247976cb984016b47340fb23891": {
+    "mode": "caption",
+    "canonical_sha256": "a58b94ea84a86d5b91d92ff51f1e1bd93ae9a247976cb984016b47340fb23891",
+    "dhash_hex": "9b83dbaefafefe72",
+    "result_text": "Bức ảnh chụp một góc quán cà phê ấm cúng với những bộ bàn ghế gỗ mộc mạc đặt sát bức tường trắng. Phía trên bàn có treo một tấm thực đơn in hình các loại đồ uống và một bức tranh phong cảnh nhỏ xinh. Ở ngay gần ống kính là một chiếc đèn bàn có thân bằng gỗ uốn lượn tinh tế, đặt trên mặt bàn màu nâu sẫm.",
+    "allow_near_match": true,
+    "created_at": "2026-03-24T07:32:07.287013+00:00",
+    "last_hit_at": "2026-03-24T07:32:07.287013+00:00"
   }
 }
