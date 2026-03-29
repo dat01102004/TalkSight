@@ -39,7 +39,7 @@ Base.metadata.create_all(bind=engine)
 # ===== CORS =====
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # dev
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -59,11 +59,14 @@ def get_current_user_required(
 ) -> models.User:
     if not creds or not creds.credentials:
         raise HTTPException(status_code=401, detail="Thiếu token")
+
     payload = decode_access_token(creds.credentials.strip())
     user_id = payload.get("sub")
+
     user = db.query(models.User).filter(models.User.id == int(user_id)).first()
     if not user:
         raise HTTPException(status_code=401, detail="User không tồn tại")
+
     return user
 
 
@@ -73,6 +76,7 @@ def get_current_user_optional(
 ) -> Optional[models.User]:
     if not creds or not creds.credentials:
         return None
+
     try:
         payload = decode_access_token(creds.credentials.strip())
         user_id = payload.get("sub")
@@ -112,7 +116,6 @@ def _raise_quota_http(e: GeminiQuotaError) -> None:
 
 def _looks_like_google_news_boilerplate(title: Optional[str], text: str) -> bool:
     hay = f"{title or ''}\n{text}".lower()
-
     signals = [
         "google news",
         "dịch vụ tập hợp",
@@ -123,7 +126,6 @@ def _looks_like_google_news_boilerplate(title: Optional[str], text: str) -> bool
         "cá nhân hóa",
         "personalized",
     ]
-
     matched = sum(1 for s in signals if s in hay)
     return matched >= 2
 
@@ -144,10 +146,8 @@ def _should_drop_generic_title(title: Optional[str]) -> bool:
 
     if t in generic:
         return True
-
     if "google news" in t:
         return True
-
     return False
 
 
@@ -182,10 +182,27 @@ def health():
 @app.post("/auth/register", response_model=schemas.AuthTokenResponse)
 def register(req: schemas.RegisterRequest, db: Session = Depends(get_db)):
     email = req.email.strip().lower()
+    full_name = req.full_name.strip()
+    phone = req.phone.strip()
+
+    if not full_name:
+        raise HTTPException(status_code=422, detail="Họ và tên không được để trống")
+
+    if not phone:
+        raise HTTPException(status_code=422, detail="Số điện thoại không được để trống")
+
     if db.query(models.User).filter(models.User.email == email).first():
         raise HTTPException(status_code=409, detail="Email đã tồn tại")
 
-    user = models.User(email=email, password_hash=hash_password(req.password))
+    if db.query(models.User).filter(models.User.phone == phone).first():
+        raise HTTPException(status_code=409, detail="Số điện thoại đã tồn tại")
+
+    user = models.User(
+        email=email,
+        password_hash=hash_password(req.password),
+        full_name=full_name,
+        phone=phone,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -198,6 +215,7 @@ def register(req: schemas.RegisterRequest, db: Session = Depends(get_db)):
 def login(req: schemas.LoginRequest, db: Session = Depends(get_db)):
     email = req.email.strip().lower()
     user = db.query(models.User).filter(models.User.email == email).first()
+
     if not user or not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Sai email hoặc mật khẩu")
 
@@ -207,7 +225,13 @@ def login(req: schemas.LoginRequest, db: Session = Depends(get_db)):
 
 @app.get("/me", response_model=schemas.MeResponse)
 def me(user: models.User = Depends(get_current_user_required)):
-    return schemas.MeResponse(id=user.id, email=user.email, created_at=user.created_at)
+    return schemas.MeResponse(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        phone=user.phone,
+        created_at=user.created_at,
+    )
 
 
 # ===== CORE: OCR =====
@@ -294,7 +318,6 @@ def read_url(
         raise HTTPException(status_code=400, detail=f"Không đọc được URL: {e}")
 
     text_raw = (text_raw or "").strip()
-
     if not text_raw:
         raise HTTPException(status_code=422, detail="Không trích xuất được nội dung bài báo")
 
@@ -304,7 +327,6 @@ def read_url(
             detail="Không lấy được nội dung bài báo gốc từ Google News",
         )
 
-    # Nếu title quá generic thì để frontend fallback về title từ feed
     final_title: Optional[str] = None if _should_drop_generic_title(title) else title
 
     # 2) summarize
@@ -361,8 +383,10 @@ def get_history(
     limit: int = Query(default=50, ge=1, le=200),
 ):
     q = db.query(models.History).filter(models.History.user_id == user.id)
+
     if type:
         q = q.filter(models.History.action_type == type)
+
     items = q.order_by(models.History.created_at.desc()).limit(limit).all()
     return schemas.HistoryResponse(items=items)
 
@@ -380,6 +404,7 @@ def delete_history_item(
     )
     if not h:
         raise HTTPException(status_code=404, detail="Không tìm thấy history")
+
     db.delete(h)
     db.commit()
     return {"ok": True}

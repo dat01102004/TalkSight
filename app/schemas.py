@@ -1,4 +1,3 @@
-# app/schemas.py
 from __future__ import annotations
 
 from datetime import datetime
@@ -12,8 +11,10 @@ class HealthResponse(BaseModel):
 
 
 class RegisterRequest(BaseModel):
+    full_name: str = Field(..., min_length=1, max_length=120)
     email: str
-    password: str
+    phone: str = Field(..., min_length=8, max_length=20)
+    password: str = Field(..., min_length=6)
 
 
 class LoginRequest(BaseModel):
@@ -30,6 +31,8 @@ class AuthTokenResponse(BaseModel):
 class MeResponse(BaseModel):
     id: int
     email: str
+    full_name: Optional[str] = None
+    phone: Optional[str] = None
     created_at: datetime
 
 
@@ -66,6 +69,8 @@ class HistoryItem(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
 class NewsItem(BaseModel):
     title: str
     link: str
@@ -75,7 +80,6 @@ class NewsItem(BaseModel):
 
 class NewsResponse(BaseModel):
     items: List[NewsItem] = Field(default_factory=list)
-
 
 
 class HistoryResponse(BaseModel):
