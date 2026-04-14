@@ -39,11 +39,17 @@ class MeResponse(BaseModel):
 class UploadImageResponse(BaseModel):
     text: str
     history_id: Optional[int] = None
+    deduplicated: bool = False
+    match_type: Optional[str] = None
+    saved_to_history: bool = False
 
 
 class CaptionResponse(BaseModel):
     caption: str
     history_id: Optional[int] = None
+    deduplicated: bool = False
+    match_type: Optional[str] = None
+    saved_to_history: bool = False
 
 
 class ReadUrlRequest(BaseModel):

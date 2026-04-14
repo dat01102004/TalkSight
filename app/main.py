@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import threading
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -8,10 +10,15 @@ from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import inspect, text as sa_text
 from sqlalchemy.orm import Session
 
 from . import models, schemas
-from .config import MAX_UPLOAD_BYTES, UPLOAD_DIR as UPLOAD_DIR_SETTING
+from .config import (
+    IMAGE_CACHE_NEAR_DUP_MAX_DISTANCE,
+    MAX_UPLOAD_BYTES,
+    UPLOAD_DIR as UPLOAD_DIR_SETTING,
+)
 from .db import Base, engine, get_db
 from .routers.news import router as news_router
 from .security import (
@@ -26,17 +33,20 @@ from .services.gemini_service import (
     gemini_ocr,
     gemini_summarize_vi,
 )
-from .services.image_cache import cache_image_result, get_cached_image_result
+from .services.image_cache import (
+    build_image_fingerprints,
+    cache_image_result,
+    get_cached_image_result,
+    hamming_distance_hex,
+)
 from .services.text_clean import clean_tts_text
 from .services.web_extract import extract_article_text_with_meta
 
 app = FastAPI(title="TalkSight API")
 app.include_router(news_router)
 
-# ===== DB init =====
 Base.metadata.create_all(bind=engine)
 
-# ===== CORS =====
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -45,12 +55,62 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ===== Uploads =====
 UPLOAD_DIR = Path(UPLOAD_DIR_SETTING)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 bearer_scheme = HTTPBearer(auto_error=False)
+
+_HISTORY_LOCKS: dict[str, threading.Lock] = {}
+_HISTORY_LOCKS_GUARD = threading.Lock()
+
+
+@dataclass(frozen=True)
+class HistoryDuplicateMatch:
+    history: models.History
+    match_type: str  # exact | near
+
+
+@dataclass(frozen=True)
+class HistorySaveResult:
+    history_id: Optional[int]
+    deduplicated: bool
+    match_type: Optional[str]
+    saved_to_history: bool
+    existing_text: Optional[str] = None
+
+
+def _ensure_schema_columns() -> None:
+    inspector = inspect(engine)
+    table_names = set(inspector.get_table_names())
+
+    with engine.begin() as conn:
+        if "users" in table_names:
+            user_cols = {col["name"] for col in inspector.get_columns("users")}
+            if "full_name" not in user_cols:
+                conn.execute(sa_text("ALTER TABLE users ADD COLUMN full_name VARCHAR(120)"))
+            if "phone" not in user_cols:
+                conn.execute(sa_text("ALTER TABLE users ADD COLUMN phone VARCHAR(20)"))
+
+        if "histories" in table_names:
+            history_cols = {col["name"] for col in inspector.get_columns("histories")}
+            if "image_sha256" not in history_cols:
+                conn.execute(sa_text("ALTER TABLE histories ADD COLUMN image_sha256 VARCHAR(64)"))
+            if "image_dhash" not in history_cols:
+                conn.execute(sa_text("ALTER TABLE histories ADD COLUMN image_dhash VARCHAR(32)"))
+
+
+_ensure_schema_columns()
+
+
+def _history_lock_for(user_id: int, action_type: str) -> threading.Lock:
+    key = f"{user_id}:{action_type}"
+    with _HISTORY_LOCKS_GUARD:
+        lock = _HISTORY_LOCKS.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _HISTORY_LOCKS[key] = lock
+        return lock
 
 
 def get_current_user_required(
@@ -62,8 +122,8 @@ def get_current_user_required(
 
     payload = decode_access_token(creds.credentials.strip())
     user_id = payload.get("sub")
-
     user = db.query(models.User).filter(models.User.id == int(user_id)).first()
+
     if not user:
         raise HTTPException(status_code=401, detail="User không tồn tại")
 
@@ -87,15 +147,11 @@ def get_current_user_optional(
         return None
 
 
-async def save_upload_file(file: UploadFile) -> tuple[str, bytes]:
-    """
-    Lưu file vào uploads/ và trả về (saved_path, bytes)
-    """
+async def read_upload_file(file: UploadFile) -> tuple[str, str, bytes]:
     suffix = Path(file.filename or "").suffix or ".jpg"
-    name = f"{uuid.uuid4().hex}{suffix}"
-    dest = UPLOAD_DIR / name
-
+    mime_type = file.content_type or "image/jpeg"
     content = await file.read()
+
     if not content:
         raise HTTPException(status_code=422, detail="File rỗng")
 
@@ -103,8 +159,14 @@ async def save_upload_file(file: UploadFile) -> tuple[str, bytes]:
         max_mb = round(MAX_UPLOAD_BYTES / (1024 * 1024))
         raise HTTPException(status_code=413, detail=f"File quá lớn (>{max_mb}MB)")
 
+    return suffix, mime_type, content
+
+
+def save_upload_bytes(content: bytes, suffix: str) -> str:
+    name = f"{uuid.uuid4().hex}{suffix}"
+    dest = UPLOAD_DIR / name
     dest.write_bytes(content)
-    return str(dest), content
+    return str(dest)
 
 
 def _raise_quota_http(e: GeminiQuotaError) -> None:
@@ -126,7 +188,7 @@ def _looks_like_google_news_boilerplate(title: Optional[str], text: str) -> bool
         "cá nhân hóa",
         "personalized",
     ]
-    matched = sum(1 for s in signals if s in hay)
+    matched = sum(1 for signal in signals if signal in hay)
     return matched >= 2
 
 
@@ -134,7 +196,7 @@ def _should_drop_generic_title(title: Optional[str]) -> bool:
     if not title or not title.strip():
         return True
 
-    t = title.strip().lower()
+    lowered = title.strip().lower()
     generic = {
         "google news",
         "news",
@@ -143,12 +205,7 @@ def _should_drop_generic_title(title: Optional[str]) -> bool:
         "tin tức",
         "tin tuc",
     }
-
-    if t in generic:
-        return True
-    if "google news" in t:
-        return True
-    return False
+    return lowered in generic or "google news" in lowered
 
 
 def _run_ocr_with_cache(image_bytes: bytes, mime_type: str) -> str:
@@ -173,12 +230,120 @@ def _run_caption_with_cache(image_bytes: bytes, mime_type: str) -> str:
     return caption
 
 
+def _find_duplicate_history(
+    db: Session,
+    *,
+    user_id: int,
+    action_type: str,
+    image_sha256: str,
+    image_dhash: str,
+    limit: int = 40,
+) -> Optional[HistoryDuplicateMatch]:
+    candidates = (
+        db.query(models.History)
+        .filter(
+            models.History.user_id == user_id,
+            models.History.action_type == action_type,
+        )
+        .order_by(models.History.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    best_near: Optional[HistoryDuplicateMatch] = None
+    best_distance: Optional[int] = None
+
+    for item in candidates:
+        if item.image_sha256 and item.image_sha256 == image_sha256:
+            return HistoryDuplicateMatch(history=item, match_type="exact")
+
+        if not item.image_dhash:
+            continue
+
+        distance = hamming_distance_hex(image_dhash, item.image_dhash)
+        if distance > IMAGE_CACHE_NEAR_DUP_MAX_DISTANCE:
+            continue
+
+        if best_distance is None or distance < best_distance:
+            best_distance = distance
+            best_near = HistoryDuplicateMatch(history=item, match_type="near")
+
+    return best_near
+
+
+def _save_history_once(
+    db: Session,
+    *,
+    user: Optional[models.User],
+    action_type: str,
+    image_bytes: bytes,
+    suffix: str,
+    image_sha256: str,
+    image_dhash: str,
+    result_text: str,
+) -> HistorySaveResult:
+    if user is None:
+        return HistorySaveResult(
+            history_id=None,
+            deduplicated=False,
+            match_type=None,
+            saved_to_history=False,
+        )
+
+    lock = _history_lock_for(user.id, action_type)
+
+    with lock:
+        duplicate = _find_duplicate_history(
+            db,
+            user_id=user.id,
+            action_type=action_type,
+            image_sha256=image_sha256,
+            image_dhash=image_dhash,
+        )
+        if duplicate is not None:
+            return HistorySaveResult(
+                history_id=duplicate.history.id,
+                deduplicated=True,
+                match_type=duplicate.match_type,
+                saved_to_history=False,
+                existing_text=duplicate.history.result_text,
+            )
+
+        saved_path = save_upload_bytes(image_bytes, suffix)
+        history = models.History(
+            user_id=user.id,
+            action_type=action_type,
+            input_data=saved_path,
+            result_text=result_text,
+            image_sha256=image_sha256,
+            image_dhash=image_dhash,
+        )
+
+        try:
+            db.add(history)
+            db.commit()
+            db.refresh(history)
+        except Exception:
+            db.rollback()
+            try:
+                Path(saved_path).unlink(missing_ok=True)
+            except Exception:
+                pass
+            raise
+
+        return HistorySaveResult(
+            history_id=history.id,
+            deduplicated=False,
+            match_type=None,
+            saved_to_history=True,
+        )
+
+
 @app.get("/health", response_model=schemas.HealthResponse)
 def health():
     return schemas.HealthResponse()
 
 
-# ===== AUTH =====
 @app.post("/auth/register", response_model=schemas.AuthTokenResponse)
 def register(req: schemas.RegisterRequest, db: Session = Depends(get_db)):
     email = req.email.strip().lower()
@@ -234,73 +399,114 @@ def me(user: models.User = Depends(get_current_user_required)):
     )
 
 
-# ===== CORE: OCR =====
 @app.post("/ocr", response_model=schemas.UploadImageResponse)
 async def ocr_image(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     user: Optional[models.User] = Depends(get_current_user_optional),
 ):
-    saved_path, image_bytes = await save_upload_file(file)
-    mime_type = file.content_type or "image/jpeg"
+    suffix, mime_type, image_bytes = await read_upload_file(file)
+    fingerprints = build_image_fingerprints(image_bytes)
+
+    if user is not None:
+      duplicate = _find_duplicate_history(
+          db,
+          user_id=user.id,
+          action_type="ocr",
+          image_sha256=fingerprints.canonical_sha256,
+          image_dhash=fingerprints.dhash_hex,
+      )
+      if duplicate is not None:
+          return schemas.UploadImageResponse(
+              text=duplicate.history.result_text,
+              history_id=duplicate.history.id,
+              deduplicated=True,
+              match_type=duplicate.match_type,
+              saved_to_history=False,
+          )
 
     try:
         text = _run_ocr_with_cache(image_bytes=image_bytes, mime_type=mime_type)
     except GeminiQuotaError as qe:
         _raise_quota_http(qe)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"OCR lỗi: {e}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"OCR lỗi: {exc}")
 
-    history_id = None
-    if user:
-        h = models.History(
-            user_id=user.id,
-            action_type="ocr",
-            input_data=saved_path,
-            result_text=text,
-        )
-        db.add(h)
-        db.commit()
-        db.refresh(h)
-        history_id = h.id
+    save_result = _save_history_once(
+        db,
+        user=user,
+        action_type="ocr",
+        image_bytes=image_bytes,
+        suffix=suffix,
+        image_sha256=fingerprints.canonical_sha256,
+        image_dhash=fingerprints.dhash_hex,
+        result_text=text,
+    )
 
-    return schemas.UploadImageResponse(text=text, history_id=history_id)
+    final_text = save_result.existing_text or text
+    return schemas.UploadImageResponse(
+        text=final_text,
+        history_id=save_result.history_id,
+        deduplicated=save_result.deduplicated,
+        match_type=save_result.match_type,
+        saved_to_history=save_result.saved_to_history,
+    )
 
 
-# ===== CORE: CAPTION =====
 @app.post("/caption", response_model=schemas.CaptionResponse)
 async def caption_image(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     user: Optional[models.User] = Depends(get_current_user_optional),
 ):
-    saved_path, image_bytes = await save_upload_file(file)
-    mime_type = file.content_type or "image/jpeg"
+    suffix, mime_type, image_bytes = await read_upload_file(file)
+    fingerprints = build_image_fingerprints(image_bytes)
+
+    if user is not None:
+        duplicate = _find_duplicate_history(
+            db,
+            user_id=user.id,
+            action_type="caption",
+            image_sha256=fingerprints.canonical_sha256,
+            image_dhash=fingerprints.dhash_hex,
+        )
+        if duplicate is not None:
+            return schemas.CaptionResponse(
+                caption=duplicate.history.result_text,
+                history_id=duplicate.history.id,
+                deduplicated=True,
+                match_type=duplicate.match_type,
+                saved_to_history=False,
+            )
 
     try:
         caption = _run_caption_with_cache(image_bytes=image_bytes, mime_type=mime_type)
     except GeminiQuotaError as qe:
         _raise_quota_http(qe)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Caption lỗi: {e}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Caption lỗi: {exc}")
 
-    history_id = None
-    if user:
-        h = models.History(
-            user_id=user.id,
-            action_type="caption",
-            input_data=saved_path,
-            result_text=caption,
-        )
-        db.add(h)
-        db.commit()
-        db.refresh(h)
-        history_id = h.id
+    save_result = _save_history_once(
+        db,
+        user=user,
+        action_type="caption",
+        image_bytes=image_bytes,
+        suffix=suffix,
+        image_sha256=fingerprints.canonical_sha256,
+        image_dhash=fingerprints.dhash_hex,
+        result_text=caption,
+    )
 
-    return schemas.CaptionResponse(caption=caption, history_id=history_id)
+    final_caption = save_result.existing_text or caption
+    return schemas.CaptionResponse(
+        caption=final_caption,
+        history_id=save_result.history_id,
+        deduplicated=save_result.deduplicated,
+        match_type=save_result.match_type,
+        saved_to_history=save_result.saved_to_history,
+    )
 
 
-# ===== CORE: READ URL =====
 @app.post("/read/url", response_model=schemas.ReadUrlResponse)
 def read_url(
     req: schemas.ReadUrlRequest,
@@ -311,11 +517,10 @@ def read_url(
     if not url:
         raise HTTPException(status_code=422, detail="URL không hợp lệ")
 
-    # 1) extract + resolve Google News -> bài gốc
     try:
         text_raw, title, resolved_url = extract_article_text_with_meta(url=url)
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Không đọc được URL: {e}")
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Không đọc được URL: {exc}")
 
     text_raw = (text_raw or "").strip()
     if not text_raw:
@@ -329,15 +534,14 @@ def read_url(
 
     final_title: Optional[str] = None if _should_drop_generic_title(title) else title
 
-    # 2) summarize
     summary_raw: Optional[str] = None
     if req.summary:
         try:
             summary_raw = gemini_summarize_vi(text_raw)
         except GeminiQuotaError as qe:
             _raise_quota_http(qe)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Summarize lỗi: {e}")
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Summarize lỗi: {exc}")
 
         if summary_raw and _looks_like_google_news_boilerplate(final_title, summary_raw):
             raise HTTPException(
@@ -345,24 +549,22 @@ def read_url(
                 detail="Tóm tắt trả về chưa đúng nội dung bài báo gốc",
             )
 
-    # 3) clean for TTS
     tts_text = clean_tts_text(text_raw)
     summary_tts = clean_tts_text(summary_raw) if summary_raw else None
 
-    # 4) save history
     history_id = None
     if user:
         to_save = summary_tts or tts_text
-        h = models.History(
+        history = models.History(
             user_id=user.id,
             action_type="read_url",
             input_data=resolved_url or url,
             result_text=to_save,
         )
-        db.add(h)
+        db.add(history)
         db.commit()
-        db.refresh(h)
-        history_id = h.id
+        db.refresh(history)
+        history_id = history.id
 
     return schemas.ReadUrlResponse(
         title=final_title,
@@ -374,7 +576,6 @@ def read_url(
     )
 
 
-# ===== HISTORY =====
 @app.get("/history", response_model=schemas.HistoryResponse)
 def get_history(
     db: Session = Depends(get_db),
@@ -382,12 +583,12 @@ def get_history(
     type: Optional[str] = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
 ):
-    q = db.query(models.History).filter(models.History.user_id == user.id)
+    query = db.query(models.History).filter(models.History.user_id == user.id)
 
     if type:
-        q = q.filter(models.History.action_type == type)
+        query = query.filter(models.History.action_type == type)
 
-    items = q.order_by(models.History.created_at.desc()).limit(limit).all()
+    items = query.order_by(models.History.created_at.desc()).limit(limit).all()
     return schemas.HistoryResponse(items=items)
 
 
@@ -397,14 +598,25 @@ def delete_history_item(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user_required),
 ):
-    h = (
+    history = (
         db.query(models.History)
         .filter(models.History.id == history_id, models.History.user_id == user.id)
         .first()
     )
-    if not h:
+    if not history:
         raise HTTPException(status_code=404, detail="Không tìm thấy history")
 
-    db.delete(h)
+    image_path = history.input_data if history.action_type in {"ocr", "caption"} else None
+
+    db.delete(history)
     db.commit()
+
+    if image_path:
+        try:
+            normalized = image_path.replace("\\", "/")
+            if normalized.startswith("uploads/"):
+                Path(normalized).unlink(missing_ok=True)
+        except Exception:
+            pass
+
     return {"ok": True}

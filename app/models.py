@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -11,10 +11,8 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-
     full_name = Column(String(120), nullable=True)
     phone = Column(String(20), unique=True, index=True, nullable=True)
-
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     histories = relationship(
@@ -29,16 +27,11 @@ class History(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-
-    # ocr | caption | read_url | read_text ...
     action_type = Column(String(50), nullable=False)
-
-    # url hoặc đường dẫn ảnh (uploads/xxx.jpg) hoặc metadata JSON string
     input_data = Column(Text, nullable=False)
-
-    # kết quả: OCR text / caption / article text/summary...
     result_text = Column(Text, nullable=False)
-
+    image_sha256 = Column(String(64), nullable=True, index=True)
+    image_dhash = Column(String(32), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     user = relationship("User", back_populates="histories")
