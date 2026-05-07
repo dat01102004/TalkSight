@@ -22,6 +22,12 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class UpdateMeRequest(BaseModel):
+    full_name: str = Field(..., min_length=1, max_length=120)
+    email: str
+    phone: str = Field(..., min_length=8, max_length=20)
+
+
 class AuthTokenResponse(BaseModel):
     user_id: int
     access_token: str
