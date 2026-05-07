@@ -13,3 +13,4 @@ readability-lxml==0.8.1
 lxml==5.2.2
 python-jose[cryptography]==3.3.0
 Pillow==11.1.0
+edge-tts==7.2.8

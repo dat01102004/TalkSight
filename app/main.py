@@ -8,7 +8,6 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import inspect, text as sa_text
 from sqlalchemy.orm import Session
@@ -20,10 +19,12 @@ from .config import (
     UPLOAD_DIR as UPLOAD_DIR_SETTING,
 )
 from .db import Base, engine, get_db
+from .deps import get_current_user_optional, get_current_user_required
 from .routers.news import router as news_router
+from .routers.settings import router as settings_router
+from .routers.tts import router as tts_router
 from .security import (
     create_access_token,
-    decode_access_token,
     hash_password,
     verify_password,
 )
@@ -44,6 +45,8 @@ from .services.web_extract import extract_article_text_with_meta
 
 app = FastAPI(title="TalkSight API")
 app.include_router(news_router)
+app.include_router(settings_router)
+app.include_router(tts_router)
 
 Base.metadata.create_all(bind=engine)
 
@@ -58,8 +61,6 @@ app.add_middleware(
 UPLOAD_DIR = Path(UPLOAD_DIR_SETTING)
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
-
-bearer_scheme = HTTPBearer(auto_error=False)
 
 _HISTORY_LOCKS: dict[str, threading.Lock] = {}
 _HISTORY_LOCKS_GUARD = threading.Lock()
@@ -113,38 +114,60 @@ def _history_lock_for(user_id: int, action_type: str) -> threading.Lock:
         return lock
 
 
-def get_current_user_required(
-    creds: HTTPAuthorizationCredentials = Depends(bearer_scheme),
-    db: Session = Depends(get_db),
-) -> models.User:
-    if not creds or not creds.credentials:
-        raise HTTPException(status_code=401, detail="Thiếu token")
-
-    payload = decode_access_token(creds.credentials.strip())
-    user_id = payload.get("sub")
-    user = db.query(models.User).filter(models.User.id == int(user_id)).first()
-
-    if not user:
-        raise HTTPException(status_code=401, detail="User không tồn tại")
-
-    return user
+def _build_me_response(user: models.User) -> schemas.MeResponse:
+    return schemas.MeResponse(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        phone=user.phone,
+        created_at=user.created_at,
+    )
 
 
-def get_current_user_optional(
-    creds: HTTPAuthorizationCredentials = Depends(bearer_scheme),
-    db: Session = Depends(get_db),
-) -> Optional[models.User]:
-    if not creds or not creds.credentials:
-        return None
+def _normalize_profile_fields(
+    *,
+    email: str,
+    full_name: str,
+    phone: str,
+) -> tuple[str, str, str]:
+    normalized_email = email.strip().lower()
+    normalized_name = full_name.strip()
+    normalized_phone = phone.strip()
 
-    try:
-        payload = decode_access_token(creds.credentials.strip())
-        user_id = payload.get("sub")
-        if not user_id:
-            return None
-        return db.query(models.User).filter(models.User.id == int(user_id)).first()
-    except Exception:
-        return None
+    if not normalized_name:
+        raise HTTPException(status_code=422, detail="Họ và tên không được để trống")
+
+    if not normalized_email:
+        raise HTTPException(status_code=422, detail="Email không được để trống")
+
+    if "@" not in normalized_email or "." not in normalized_email.split("@")[-1]:
+        raise HTTPException(status_code=422, detail="Email chưa đúng định dạng")
+
+    if not normalized_phone:
+        raise HTTPException(status_code=422, detail="Số điện thoại không được để trống")
+
+    return normalized_email, normalized_name, normalized_phone
+
+
+def _ensure_unique_profile_fields(
+    db: Session,
+    *,
+    email: str,
+    phone: str,
+    exclude_user_id: Optional[int] = None,
+) -> None:
+    email_query = db.query(models.User).filter(models.User.email == email)
+    phone_query = db.query(models.User).filter(models.User.phone == phone)
+
+    if exclude_user_id is not None:
+        email_query = email_query.filter(models.User.id != exclude_user_id)
+        phone_query = phone_query.filter(models.User.id != exclude_user_id)
+
+    if email_query.first():
+        raise HTTPException(status_code=409, detail="Email đã tồn tại")
+
+    if phone_query.first():
+        raise HTTPException(status_code=409, detail="Số điện thoại đã tồn tại")
 
 
 async def read_upload_file(file: UploadFile) -> tuple[str, str, bytes]:
@@ -346,21 +369,18 @@ def health():
 
 @app.post("/auth/register", response_model=schemas.AuthTokenResponse)
 def register(req: schemas.RegisterRequest, db: Session = Depends(get_db)):
-    email = req.email.strip().lower()
-    full_name = req.full_name.strip()
-    phone = req.phone.strip()
+    email, full_name, phone = _normalize_profile_fields(
+        email=req.email,
+        full_name=req.full_name,
+        phone=req.phone,
+    )
 
-    if not full_name:
-        raise HTTPException(status_code=422, detail="Họ và tên không được để trống")
-
-    if not phone:
-        raise HTTPException(status_code=422, detail="Số điện thoại không được để trống")
-
-    if db.query(models.User).filter(models.User.email == email).first():
-        raise HTTPException(status_code=409, detail="Email đã tồn tại")
-
-    if db.query(models.User).filter(models.User.phone == phone).first():
-        raise HTTPException(status_code=409, detail="Số điện thoại đã tồn tại")
+    _ensure_unique_profile_fields(
+        db,
+        email=email,
+        phone=phone,
+        exclude_user_id=None,
+    )
 
     user = models.User(
         email=email,
@@ -390,13 +410,37 @@ def login(req: schemas.LoginRequest, db: Session = Depends(get_db)):
 
 @app.get("/me", response_model=schemas.MeResponse)
 def me(user: models.User = Depends(get_current_user_required)):
-    return schemas.MeResponse(
-        id=user.id,
-        email=user.email,
-        full_name=user.full_name,
-        phone=user.phone,
-        created_at=user.created_at,
+    return _build_me_response(user)
+
+
+@app.put("/me", response_model=schemas.MeResponse)
+def update_me(
+    req: schemas.UpdateMeRequest,
+    db: Session = Depends(get_db),
+    user: models.User = Depends(get_current_user_required),
+):
+    email, full_name, phone = _normalize_profile_fields(
+        email=req.email,
+        full_name=req.full_name,
+        phone=req.phone,
     )
+
+    _ensure_unique_profile_fields(
+        db,
+        email=email,
+        phone=phone,
+        exclude_user_id=user.id,
+    )
+
+    user.email = email
+    user.full_name = full_name
+    user.phone = phone
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return _build_me_response(user)
 
 
 @app.post("/ocr", response_model=schemas.UploadImageResponse)
@@ -409,21 +453,21 @@ async def ocr_image(
     fingerprints = build_image_fingerprints(image_bytes)
 
     if user is not None:
-      duplicate = _find_duplicate_history(
-          db,
-          user_id=user.id,
-          action_type="ocr",
-          image_sha256=fingerprints.canonical_sha256,
-          image_dhash=fingerprints.dhash_hex,
-      )
-      if duplicate is not None:
-          return schemas.UploadImageResponse(
-              text=duplicate.history.result_text,
-              history_id=duplicate.history.id,
-              deduplicated=True,
-              match_type=duplicate.match_type,
-              saved_to_history=False,
-          )
+        duplicate = _find_duplicate_history(
+            db,
+            user_id=user.id,
+            action_type="ocr",
+            image_sha256=fingerprints.canonical_sha256,
+            image_dhash=fingerprints.dhash_hex,
+        )
+        if duplicate is not None:
+            return schemas.UploadImageResponse(
+                text=duplicate.history.result_text,
+                history_id=duplicate.history.id,
+                deduplicated=True,
+                match_type=duplicate.match_type,
+                saved_to_history=False,
+            )
 
     try:
         text = _run_ocr_with_cache(image_bytes=image_bytes, mime_type=mime_type)

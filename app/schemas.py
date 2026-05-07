@@ -22,6 +22,12 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class UpdateMeRequest(BaseModel):
+    full_name: str = Field(..., min_length=1, max_length=120)
+    email: str
+    phone: str = Field(..., min_length=8, max_length=20)
+
+
 class AuthTokenResponse(BaseModel):
     user_id: int
     access_token: str
@@ -34,6 +40,53 @@ class MeResponse(BaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None
     created_at: datetime
+
+
+class SettingBase(BaseModel):
+    voice: Optional[str] = None
+    rate: float = 1.0
+    volume: float = 1.0
+    language: str = "vi-VN"
+
+
+class SettingCreate(SettingBase):
+    pass
+
+
+class SettingUpdate(BaseModel):
+    voice: Optional[str] = None
+    rate: Optional[float] = None
+    volume: Optional[float] = None
+    language: Optional[str] = None
+
+
+class SettingOut(SettingBase):
+    id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+SettingResponse = SettingOut
+
+
+class TtsSpeakRequest(BaseModel):
+    text: str = Field(..., min_length=1, max_length=12000)
+    voice: Optional[str] = None
+    rate: Optional[float] = None
+    volume: Optional[float] = None
+    language: Optional[str] = None
+
+
+class TtsSpeakResponse(BaseModel):
+    audio_url: str
+    file_path: str
+    voice: str
+    rate: float
+    volume: float
+    language: str
 
 
 class UploadImageResponse(BaseModel):
