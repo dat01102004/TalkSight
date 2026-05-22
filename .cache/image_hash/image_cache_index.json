@@ -23,7 +23,115 @@
     "dhash_hex": "4f57958fccf6e6ee",
     "result_text": "Một củ sạc điện thoại màu trắng hình hộp chữ nhật đang nằm ngang trên đỉnh của một chiếc loa thùng màu đen. Mặt trước của loa có một màng loa nhỏ dạng vòm tròn bóng loáng và hé lộ một phần màng loa lớn màu đồng phía dưới. Phía sau loa là tấm rèm cửa màu vàng cam có họa tiết hoa, bên cạnh một vài sợi dây cáp treo trên tường và một phần chiếc đèn bàn màu trắng ở góc trái.",
     "allow_near_match": true,
-    "created_at": "2026-05-22T00:52:36.572199+00:00",
-    "last_hit_at": "2026-05-22T00:52:36.572199+00:00"
+    "created_at": "2026-04-14T12:08:10.616047+00:00",
+    "last_hit_at": "2026-04-14T12:09:12.077813+00:00"
+  },
+  "caption:0f19de2367ea28c280fc6909edd438d0025ed9033760fcb1ba02f0228aa2fb0e": {
+    "mode": "caption",
+    "canonical_sha256": "0f19de2367ea28c280fc6909edd438d0025ed9033760fcb1ba02f0228aa2fb0e",
+    "dhash_hex": "e1e1e1c0c4c9d092",
+    "result_text": "Bức ảnh chụp một góc làm việc vào ban đêm với ánh sáng phát ra từ màn hình và bàn phím laptop. Phía bên trái là một chiếc laptop có bàn phím rực rỡ ánh đèn nền màu xanh lá cây, trong khi bên phải là màn hình rời lớn đang hiển thị giao diện lập trình với nhiều dòng mã nguồn. Dưới chân màn hình là các dây cáp kết nối nằm trên mặt bàn tối màu. Không gian xung quanh khá tối, làm nổi bật sự tập trung vào các thiết bị điện tử đang hoạt động.",
+    "allow_near_match": true,
+    "created_at": "2026-04-14T12:43:52.236924+00:00",
+    "last_hit_at": "2026-04-14T12:44:37.927166+00:00"
+  },
+  "caption:494043ab97e8899ed762430f860a6254e237f292d4089b0d613c8d4d6986c6e4": {
+    "mode": "caption",
+    "canonical_sha256": "494043ab97e8899ed762430f860a6254e237f292d4089b0d613c8d4d6986c6e4",
+    "dhash_hex": "7c38b0f4f01bbef2",
+    "result_text": "Hình ảnh chụp một góc làm việc hoặc học tập vào ban đêm với tâm điểm là chiếc laptop và một màn hình phụ. Bàn phím laptop đang bật đèn nền màu xanh lá cây rực rỡ, phía trên màn hình hiển thị hình nền phong cảnh rừng cây mùa thu soi bóng bên hồ nước. Phía bên phải là một màn hình máy tính khác đang mở giao diện quản lý tệp tin với một số dòng chữ tiếng Việt. Không gian xung quanh khá tối, làm nổi bật ánh sáng phát ra từ các thiết bị điện tử và các dây cáp kết nối bên cạnh.",
+    "allow_near_match": true,
+    "created_at": "2026-04-14T13:12:01.707670+00:00",
+    "last_hit_at": "2026-04-14T13:12:31.389513+00:00"
+  },
+  "caption:51d8394f2835850a089bd405b43e4d2864201430944a2ad51168f745d2d13af7": {
+    "mode": "caption",
+    "canonical_sha256": "51d8394f2835850a089bd405b43e4d2864201430944a2ad51168f745d2d13af7",
+    "dhash_hex": "73e2c3d2e02969c1",
+    "result_text": "Bức ảnh chụp một góc làm việc vào ban đêm với hai màn hình máy tính đang bật sáng. Bên trái là một chiếc laptop có bàn phím phát ánh sáng xanh nhạt, hiển thị hình nền phong cảnh thiên nhiên. Phía bên phải là một màn hình lớn đang mở trình soạn thảo mã nguồn với nhiều dòng lệnh lập trình và cửa sổ thông báo. Căn phòng khá tối, làm nổi bật ánh sáng từ các thiết bị và những sợi dây cáp kết nối phía dưới.",
+    "allow_near_match": true,
+    "created_at": "2026-04-14T13:14:00.925898+00:00",
+    "last_hit_at": "2026-04-14T13:14:00.925898+00:00"
+  },
+  "caption:029e481315e92b2940f00c16691fcb00df5cb9a6d6b4b9ca7f667e11fd2c96ed": {
+    "mode": "caption",
+    "canonical_sha256": "029e481315e92b2940f00c16691fcb00df5cb9a6d6b4b9ca7f667e11fd2c96ed",
+    "dhash_hex": "9edefc6c6cacc7dc",
+    "result_text": "Bức ảnh chụp cận cảnh một chiếc máy tính xách tay đang mở trong không gian tối. Màn hình hiển thị hình nền phong cảnh thiên nhiên với một ngôi nhà bên hồ và rừng cây rực rỡ sắc thu. Điểm nhấn là bàn phím có đèn nền chuyển màu rực rỡ từ vàng, cam sang hồng và tím ở cụm phím số. Phía bên phải máy tính có một số dây cáp đang được cắm vào các cổng kết nối.",
+    "allow_near_match": true,
+    "created_at": "2026-04-14T13:14:39.165939+00:00",
+    "last_hit_at": "2026-04-14T13:14:39.165939+00:00"
+  },
+  "caption:c19fdc1e675f8f0d01f3f858c7569d896d396099259a3fc6acf24e9924d9b0ce": {
+    "mode": "caption",
+    "canonical_sha256": "c19fdc1e675f8f0d01f3f858c7569d896d396099259a3fc6acf24e9924d9b0ce",
+    "dhash_hex": "cf0fafe70793e36f",
+    "result_text": "Một tấm ảnh chụp màn hình máy tính xách tay đang mở một video ca nhạc trực tuyến, bên cạnh là cửa sổ trò chuyện với nhiều dòng tin nhắn liên tục hiện lên. Phía dưới là bàn phím của máy tính đang rực rỡ với ánh đèn nền chuyển màu từ vàng, đỏ sang tím và xanh dương rất bắt mắt. Tổng thể bức ảnh toát lên vẻ hiện đại và sôi động của một buổi giải trí vào ban đêm.",
+    "allow_near_match": true,
+    "created_at": "2026-04-14T13:54:03.889981+00:00",
+    "last_hit_at": "2026-04-14T13:54:05.274021+00:00"
+  },
+  "caption:b304c8f231d9ddd89cce046e537214e3c94eb0b34302d40fed7227d206586228": {
+    "mode": "caption",
+    "canonical_sha256": "b304c8f231d9ddd89cce046e537214e3c94eb0b34302d40fed7227d206586228",
+    "dhash_hex": "8f2fafc70717336f",
+    "result_text": "Hình ảnh hiển thị một chiếc laptop đang hoạt động trong không gian tối với bàn phím có đèn nền rực rỡ. Bàn phím được chiếu sáng bởi dải màu cầu vồng, chuyển dần từ xanh lá cây ở bên trái sang đỏ ở bên phải. Màn hình đang hiển thị một buổi livestream, với video người đang phát trực tiếp ở bên trái và cửa sổ trò chuyện dày đặc tin nhắn ở bên phải. Ánh sáng mạnh từ máy tính tạo nên sự tương phản rõ rệt với môi trường tối xung quanh.",
+    "allow_near_match": true,
+    "created_at": "2026-04-14T13:54:13.432697+00:00",
+    "last_hit_at": "2026-04-14T13:54:13.432697+00:00"
+  },
+  "caption:3b86578d879c7a433f2f96dcc8925f0b6e6874ff4c2e00c132b83bb3abfa4349": {
+    "mode": "caption",
+    "canonical_sha256": "3b86578d879c7a433f2f96dcc8925f0b6e6874ff4c2e00c132b83bb3abfa4349",
+    "dhash_hex": "371713974448ec85",
+    "result_text": "Bức ảnh chụp một góc bàn làm việc với tâm điểm là màn hình máy tính đang hiển thị màu xám xanh nhạt. Màn hình được đặt trên một chiếc kệ màu trắng, bên dưới là mặt bàn tối màu có để một chiếc đồng hồ đeo tay kim loại và một góc của bàn phím cơ. Xung quanh chân đế màn hình có nhiều dây cáp kết nối nằm rải rác, tạo nên khung cảnh làm việc cá nhân trong điều kiện ánh sáng phòng hơi tối.",
+    "allow_near_match": true,
+    "created_at": "2026-04-14T13:54:19.945792+00:00",
+    "last_hit_at": "2026-04-14T13:54:19.945792+00:00"
+  },
+  "caption:2ba8721dc6b138c5589abe0c177058a2c78852d762f4b644988f3a1f26a9a1b6": {
+    "mode": "caption",
+    "canonical_sha256": "2ba8721dc6b138c5589abe0c177058a2c78852d762f4b644988f3a1f26a9a1b6",
+    "dhash_hex": "e5e5e5e4d9697ac1",
+    "result_text": "Bức ảnh chụp một góc bàn làm việc trong không gian tối với một chiếc laptop và màn hình máy tính lớn. Bàn phím laptop ở bên trái nổi bật với hệ thống đèn nền màu tím và hồng rực rỡ. Phía bên phải là màn hình máy tính đang hiển thị thông tin thời tiết \"29°C Có mây rải rác\" ở góc dưới cùng. Giữa hai thiết bị là các dây cáp kết nối nằm trên mặt bàn tối màu.",
+    "allow_near_match": true,
+    "created_at": "2026-04-14T13:54:26.019619+00:00",
+    "last_hit_at": "2026-04-14T13:54:37.253323+00:00"
+  },
+  "caption:5f29d0356aaf814ee32af45d77839baac47091b5a1b03d942a8621803949914c": {
+    "mode": "caption",
+    "canonical_sha256": "5f29d0356aaf814ee32af45d77839baac47091b5a1b03d942a8621803949914c",
+    "dhash_hex": "939b8bc9a6a4e582",
+    "result_text": "Bức ảnh chụp một góc máy tính trong không gian thiếu sáng. Một màn hình lớn đang bật, hiển thị giao diện với thanh tác vụ màu xám ở cạnh dưới. Phía dưới bên trái là một phần của bàn phím có đèn nền LED màu xanh lá cây rực rỡ. Màn hình được đặt trên một chiếc kệ trắng, xung quanh có nhiều dây cáp màu đen kết nối các thiết bị.",
+    "allow_near_match": true,
+    "created_at": "2026-04-14T13:54:31.194708+00:00",
+    "last_hit_at": "2026-04-14T13:54:31.194708+00:00"
+  },
+  "caption:87d96c45e98502be1f41d6c66eafbebe07f4733cb479dab0fbfa804006e7ff45": {
+    "mode": "caption",
+    "canonical_sha256": "87d96c45e98502be1f41d6c66eafbebe07f4733cb479dab0fbfa804006e7ff45",
+    "dhash_hex": "f4f4f47c781a1e76",
+    "result_text": "Bức ảnh hơi nhòe chụp một chiếc laptop đang mở trong không gian tối. Bàn phím máy tính tỏa ra ánh sáng đèn nền màu xanh dương và tím rực rỡ. Trên màn hình laptop hiển thị một ứng dụng nhắn tin với một khung cửa sổ trắng sáng nổi bật. Phía bên phải là một phần của màn hình máy tính khác và một số dây cáp đặt trên bàn.",
+    "allow_near_match": true,
+    "created_at": "2026-04-14T13:54:37.215940+00:00",
+    "last_hit_at": "2026-04-14T13:54:37.215940+00:00"
+  },
+  "caption:7a1ab37191767627d60096143cf10813acfe966c5ab241d19246595802ee6ce4": {
+    "mode": "caption",
+    "canonical_sha256": "7a1ab37191767627d60096143cf10813acfe966c5ab241d19246595802ee6ce4",
+    "dhash_hex": "736d3ffa405e4818",
+    "result_text": "Màn hình máy tính Huntkey đang hiển thị một cửa sổ lệnh với nhiều dòng thông báo lỗi \"429 Too Many Requests\" màu vàng nổi bật trên nền đen. Lỗi này cho thấy hệ thống đang tạm dừng tiếp nhận vì có quá nhiều yêu cầu được gửi đến máy chủ cùng lúc. Phía dưới màn hình là một kệ gỗ màu trắng, trên mặt bàn tối màu có đặt một chiếc đồng hồ đeo tay kim loại và một chiếc loa vỏ gỗ ở góc phải.",
+    "allow_near_match": true,
+    "created_at": "2026-04-14T13:55:12.011296+00:00",
+    "last_hit_at": "2026-04-14T13:55:12.011296+00:00"
+  },
+  "caption:1d826037c7cb1c500d9d6e1ea8b9d27d23f9d7372c9d6a1d684b8d7789e15d2e": {
+    "mode": "caption",
+    "canonical_sha256": "1d826037c7cb1c500d9d6e1ea8b9d27d23f9d7372c9d6a1d684b8d7789e15d2e",
+    "dhash_hex": "273313f8425e4818",
+    "result_text": "Ảnh chụp màn hình máy tính hiệu Huntkey đang hiển thị giao diện của một ứng dụng hỗ trợ người khiếm thị với các nút điều khiển lớn màu vàng. Màn hình được đặt trên một chiếc kệ trắng, phía dưới có một chiếc đồng hồ đeo tay dây kim loại nằm trên mặt bàn tối màu. Bên phải màn hình là một phần của chiếc loa gỗ, tạo nên một không gian làm việc gọn gàng.",
+    "allow_near_match": true,
+    "created_at": "2026-04-14T13:55:19.008920+00:00",
+    "last_hit_at": "2026-04-14T13:55:19.025057+00:00"
   }
 }

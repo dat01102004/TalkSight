@@ -170,6 +170,62 @@ def _ensure_unique_profile_fields(
         raise HTTPException(status_code=409, detail="Số điện thoại đã tồn tại")
 
 
+def _build_me_response(user: models.User) -> schemas.MeResponse:
+    return schemas.MeResponse(
+        id=user.id,
+        email=user.email,
+        full_name=user.full_name,
+        phone=user.phone,
+        created_at=user.created_at,
+    )
+
+
+def _normalize_profile_fields(
+    *,
+    email: str,
+    full_name: str,
+    phone: str,
+) -> tuple[str, str, str]:
+    normalized_email = email.strip().lower()
+    normalized_name = full_name.strip()
+    normalized_phone = phone.strip()
+
+    if not normalized_name:
+        raise HTTPException(status_code=422, detail="Họ và tên không được để trống")
+
+    if not normalized_email:
+        raise HTTPException(status_code=422, detail="Email không được để trống")
+
+    if "@" not in normalized_email or "." not in normalized_email.split("@")[-1]:
+        raise HTTPException(status_code=422, detail="Email chưa đúng định dạng")
+
+    if not normalized_phone:
+        raise HTTPException(status_code=422, detail="Số điện thoại không được để trống")
+
+    return normalized_email, normalized_name, normalized_phone
+
+
+def _ensure_unique_profile_fields(
+    db: Session,
+    *,
+    email: str,
+    phone: str,
+    exclude_user_id: Optional[int] = None,
+) -> None:
+    email_query = db.query(models.User).filter(models.User.email == email)
+    phone_query = db.query(models.User).filter(models.User.phone == phone)
+
+    if exclude_user_id is not None:
+        email_query = email_query.filter(models.User.id != exclude_user_id)
+        phone_query = phone_query.filter(models.User.id != exclude_user_id)
+
+    if email_query.first():
+        raise HTTPException(status_code=409, detail="Email đã tồn tại")
+
+    if phone_query.first():
+        raise HTTPException(status_code=409, detail="Số điện thoại đã tồn tại")
+
+
 async def read_upload_file(file: UploadFile) -> tuple[str, str, bytes]:
     suffix = Path(file.filename or "").suffix or ".jpg"
     mime_type = file.content_type or "image/jpeg"
