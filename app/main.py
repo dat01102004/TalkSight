@@ -30,10 +30,9 @@ from .security import (
 )
 from .services.gemini_service import (
     GeminiQuotaError,
-    gemini_caption,
     gemini_ocr,
-    gemini_summarize_vi,
 )
+from .services.ai_provider import describe_image_with_fallback, generate_text_with_fallback
 from .services.image_cache import (
     build_image_fingerprints,
     cache_image_result,
@@ -298,12 +297,26 @@ def _run_ocr_with_cache(image_bytes: bytes, mime_type: str) -> str:
     return text
 
 
-def _run_caption_with_cache(image_bytes: bytes, mime_type: str) -> str:
+def _build_summary_prompt(text: str, max_bullets: int = 6) -> str:
+    return f"""
+Báº¡n lĂ  trá»£ lĂ½ Ä‘á»c ná»™i dung cho ngÆ°á»i khiáº¿m thá»‹.
+HĂ£y tĂ³m táº¯t vÄƒn báº£n sau báº±ng tiáº¿ng Viá»‡t:
+
+- Ngáº¯n gá»n, dá»… nghe
+- {max_bullets} Ă½ chĂ­nh
+- KhĂ´ng thĂªm thĂ´ng tin ngoĂ i vÄƒn báº£n
+
+VÄƒn báº£n:
+{text}
+""".strip()
+
+
+async def _run_caption_with_cache(image_bytes: bytes, mime_type: str) -> str:
     cached = get_cached_image_result(mode="caption", image_bytes=image_bytes)
     if cached:
         return cached.result_text
 
-    caption_raw = gemini_caption(image_bytes, mime_type=mime_type)
+    caption_raw = await describe_image_with_fallback(image_bytes, mime_type=mime_type)
     caption = clean_tts_text(caption_raw)
     cache_image_result(mode="caption", image_bytes=image_bytes, result_text=caption)
     return caption
@@ -580,9 +593,11 @@ async def caption_image(
             )
 
     try:
-        caption = _run_caption_with_cache(image_bytes=image_bytes, mime_type=mime_type)
+        caption = await _run_caption_with_cache(image_bytes=image_bytes, mime_type=mime_type)
     except GeminiQuotaError as qe:
         _raise_quota_http(qe)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Caption lỗi: {exc}")
 
@@ -608,7 +623,7 @@ async def caption_image(
 
 
 @app.post("/read/url", response_model=schemas.ReadUrlResponse)
-def read_url(
+async def read_url(
     req: schemas.ReadUrlRequest,
     db: Session = Depends(get_db),
     user: Optional[models.User] = Depends(get_current_user_optional),
@@ -637,9 +652,11 @@ def read_url(
     summary_raw: Optional[str] = None
     if req.summary:
         try:
-            summary_raw = gemini_summarize_vi(text_raw)
+            summary_raw = await generate_text_with_fallback(_build_summary_prompt(text_raw))
         except GeminiQuotaError as qe:
             _raise_quota_http(qe)
+        except HTTPException:
+            raise
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Summarize lỗi: {exc}")
 

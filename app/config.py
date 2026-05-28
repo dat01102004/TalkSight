@@ -13,6 +13,11 @@ MOCK_AI = os.getenv("MOCK_AI", "true").lower() == "true"
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+AI_PROVIDER = os.getenv("AI_PROVIDER", "gemini").strip().lower() or "gemini"
+AI_FALLBACK_ENABLED = os.getenv("AI_FALLBACK_ENABLED", "true").lower() == "true"
+OPENAI_FALLBACK_MODEL = os.getenv("OPENAI_FALLBACK_MODEL", "gpt-5.4-mini")
+AI_TIMEOUT_SECONDS = int(os.getenv("AI_TIMEOUT_SECONDS", "25"))
 
 IMAGE_CACHE_ENABLED = os.getenv("IMAGE_CACHE_ENABLED", "true").lower() == "true"
 IMAGE_CACHE_DIR = os.getenv("IMAGE_CACHE_DIR", ".cache/image_hash")

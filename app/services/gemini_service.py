@@ -157,6 +157,27 @@ Văn bản:
         raise RuntimeError(f"Lỗi Gemini Summarize: {e}")
 
 
+def gemini_generate_text(prompt: str) -> str:
+    if MOCK_AI:
+        return "MOCK_SUMMARY: TĂ³m táº¯t ná»™i dung bĂ i viáº¿t."
+
+    _require_api_key()
+
+    try:
+        from google import genai
+
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        resp = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt,
+        )
+        return (resp.text or "").strip()
+
+    except Exception as e:
+        _raise_if_overload(e)
+        raise RuntimeError(f"Lá»—i Gemini Generate Text: {e}")
+
+
 # ---------- READ URL ----------
 def gemini_read_url(
     url: str,
